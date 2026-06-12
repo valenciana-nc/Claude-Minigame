@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="./assets/readme-header.svg" alt="Clawd Runner, a colorful terminal crab minigame" width="920">
-</p>
 
 # Clawd Runner 
 
