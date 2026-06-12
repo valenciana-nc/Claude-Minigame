@@ -1,4 +1,4 @@
-# claude-minigame 🦀
+ npm install -g claude-minigame 
 
 **Clawd Runner** — the Chrome-dino game, but it's Clawd (the Claude Code crab) dodging
 segfault cacti and flying bugs in your terminal. Ctrl+click the crab in your Claude Code
