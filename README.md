@@ -20,6 +20,15 @@ and a death screen-shake. Procedural gaps that are always *fair* — and a high 
 
 ## Play
 
+Install from npm:
+
+```sh
+npm install -g claude-minigame
+claude-run
+```
+
+Or run from source:
+
 ```sh
 git clone https://github.com/<you>/claude-minigame
 cd claude-minigame
