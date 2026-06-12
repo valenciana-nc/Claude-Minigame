@@ -2,7 +2,7 @@
   <img src="./assets/readme-header.svg" alt="Clawd Runner, a colorful terminal crab minigame" width="920">
 </p>
 
-# Clawd Runner 🦀
+# Clawd Runner 
 
 **Clawd Runner** — the Chrome-dino game, but it's Clawd (the Claude Code crab) dodging
 segfault cacti and flying bugs in your terminal. Ctrl+click the crab in your Claude Code
@@ -24,7 +24,7 @@ Install from npm:
 
 ```sh
 npm install -g claude-minigame
-claude-run
+claude-run or clawd run
 ```
 
 Or run from source:
