@@ -3,59 +3,134 @@
 // used for Clawd's eyes), anything else = drawn in the sprite's color.
 
 export const CRAB = {
-  w: 8,
+  w: 11,
   color: 'O',
-  // claws up, square head, two dark eyes, little legs
+  // Square-bodied Clawd, traced pixel-for-pixel from the mascot: flat-topped
+  // head, two wide-set dark eyes, a cheek band that bulges one pixel wider on
+  // each side, then four stubby legs (two left, two right) with a center gap.
   runA: [
-    ' ▝▖▄▄▗▘ ',
-    '▗██████▖',
-    '▐█.██.█▌',
-    ' ▌▌  ▐▐ ',
+    ' █████████ ',
+    ' █.█████.█ ',
+    '███████████',
+    ' █████████ ',
+    ' █ █   █ █ ',
   ],
   runB: [
-    ' ▝▖▄▄▗▘ ',
-    '▗██████▖',
-    '▐█.██.█▌',
-    ' ▘▌  ▐▝ ',
+    ' █████████ ',
+    ' █.█████.█ ',
+    '███████████',
+    ' █████████ ',
+    '  █ █ █ █  ',
   ],
   jump: [
-    ' ▝▖▄▄▗▘ ',
-    '▗██████▖',
-    '▐█.██.█▌',
-    '  ▀▘▝▀  ',
+    ' █████████ ',
+    ' █.█████.█ ',
+    '███████████',
+    ' █████████ ',
+    '  ██   ██  ',
   ],
   dead: [
-    ' ▝▖▄▄▗▘ ',
-    '▗██████▖',
-    '▐█x██x█▌',
-    ' ▌▌  ▐▐ ',
+    ' █████████ ',
+    ' █x█████x█ ',
+    '███████████',
+    ' █████████ ',
+    ' █ █   █ █ ',
   ],
+  // Ducking flattens Clawd to two rows so he visibly slips under mid flyers.
   duckA: [
-    '▗▄▄▄▄▄▄▄▖',
-    '▐█.██.█▛▘',
+    '██.█████.██',
+    ' █ █   █ █ ',
   ],
   duckB: [
-    '▗▄▄▄▄▄▄▄▖',
-    '▐█.██.█▛▘',
+    '██.█████.██',
+    '  █ █ █ █  ',
   ],
 };
 
-// Obstacles. Ground cacti ("segfaults") and flying bugs.
-export const CACTI = [
-  { w: 2, h: 2, color: 'G', rows: ['▟▖', '▐▌'] },
-  { w: 3, h: 3, color: 'G', rows: ['▗▙ ', '▐█▌', '▐█▌'] },
-  { w: 5, h: 2, color: 'G', rows: ['▟▖ ▟▖', '▐▌ ▐▌'] },
-  { w: 6, h: 3, color: 'G', rows: [' ▟▖▙ ', '▐█▌█▌ ', '▐█▌█▌ '] },
-];
-
-export const BUG = {
-  w: 3,
-  h: 1,
-  color: 'M',
-  frames: ['}o{', ')o('],
+// Alternate skin: the Claude Code app icon — a round, puffy blue-violet cloud
+// with a white `>_` terminal prompt dead-centre, plus small legs. Rounded with
+// the three-quarter blocks ▟▙▜▛ so the corners read soft, not square.
+// Convention adds '#' = accent (white prompt); '█'/▟▙▜▛ = body; ' ' transparent.
+export const CLAUDE = {
+  w: 11,
+  color: 'C',
+  accent: 'W',
+  // A round cloud: domed top (▄ caps), full equator, rounded bottom (▀ caps),
+  // white `>_` prompt dead-centre, four little legs.
+  runA: [
+    '  ▄█████▄  ',
+    ' ▟█#█████▙ ',
+    '████#█##███',
+    ' ▜█#█████▛ ',
+    '  ▀█████▀  ',
+    '  █ █ █ █  ',
+  ],
+  runB: [
+    '  ▄█████▄  ',
+    ' ▟█#█████▙ ',
+    '████#█##███',
+    ' ▜█#█████▛ ',
+    '  ▀█████▀  ',
+    '   █ █ █ █ ',
+  ],
+  jump: [
+    '  ▄█████▄  ',
+    ' ▟█#█████▙ ',
+    '████#█##███',
+    ' ▜█#█████▛ ',
+    '  ▀█████▀  ',
+    '   █   █   ',
+  ],
+  dead: [
+    '  ▄█████▄  ',
+    ' ▟█x█████▙ ',
+    '████x█xx███',
+    ' ▜█x█████▛ ',
+    '  ▀█████▀  ',
+    '  █ █ █ █  ',
+  ],
+  duckA: [
+    '▄███#█#███▄',
+    '  █ █ █ █  ',
+  ],
+  duckB: [
+    '▄███#█#███▄',
+    '   █ █ █ █ ',
+  ],
 };
 
-export const CLOUD = { color: 'D', rows: ['░░░░░'] };
+// Ground obstacles — "segfaults": jagged green crash-stacks in the same blocky
+// style as Clawd. Sorted loosely easy→hard; `tier` gates them by distance.
+export const CACTI = [
+  { w: 1, h: 1, color: 'G', tier: 0, rows: ['█'] },                         // pebble
+  { w: 2, h: 2, color: 'G', tier: 0, rows: ['██', '██'] },                  // stub
+  { w: 1, h: 3, color: 'G', tier: 1, rows: ['█', '█', '█'] },               // spike
+  { w: 3, h: 2, color: 'G', tier: 1, rows: ['█ █', '███'] },                // forked
+  { w: 3, h: 3, color: 'G', tier: 2, rows: ['█ █', '███', ' █ '] },         // saguaro
+  { w: 5, h: 2, color: 'G', tier: 2, rows: ['█ █ █', '█████'] },            // comb
+  { w: 4, h: 3, color: 'G', tier: 3, rows: ['█ █', '███', '█ █'] },         // gnarly
+  { w: 5, h: 3, color: 'G', tier: 3, rows: ['█ █ █', '█████', ' █ █ '] },   // cluster
+];
+
+// Flying enemies — picked by species, placed at a `fly` height the engine sets.
+// One row tall so duck/jump math stays clean; multi-frame wing-beats so they
+// read as actively flapping toward you, not a static sprite sliding past.
+export const FLYERS = [
+  { w: 3, color: 'M', frames: ['\\o/', '-o-', '/o\\', '-o-'] }, // moth — full up→down flap
+  { w: 3, color: 'P', frames: ['<×>', '>×<'] },                 // glitch — skitters/jitters
+  { w: 5, color: 'M', frames: ['╲▂█▂╱', '─▆█▆─', '╱▀█▀╲', '─▆█▆─'] }, // big bird — wingbeats
+];
+// kept for back-compat with older callers/tests
+export const BUG = FLYERS[0];
+
+// Parallax clouds — soft, dim, various sizes. One or two rows.
+export const CLOUDS = [
+  ['░░░'],
+  ['░▒░'],
+  [' ░░░ ', '░▒▒▒░'],
+  ['░░▒░░'],
+];
+export const CLOUD = { color: 'D', rows: CLOUDS[0] };
 
 export const TITLE = 'C L A W D   R U N N E R';
 export const SUBTITLE = 'the unofficial Claude Code minigame';

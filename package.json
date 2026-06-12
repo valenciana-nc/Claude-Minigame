@@ -4,12 +4,13 @@
   "description": "Clawd Runner — a Chrome-dino-style terminal minigame starring Clawd, the Claude Code crab. Ctrl+click the crab in your Claude Code statusline (or welcome screen) to play.",
   "type": "module",
   "bin": {
-    "clawd": "./bin/clawd.js"
+    "claude-run": "bin/clawd.js",
+    "clawd": "bin/clawd.js"
   },
   "scripts": {
-    "start": "node bin/clawd.js",
+    "start": "node bin/clawd.js run",
     "test": "node test/engine.test.mjs",
-    "snapshot": "node bin/clawd.js --snapshot 8 --plain"
+    "snapshot": "node bin/clawd.js run --snapshot 8 --plain"
   },
   "engines": {
     "node": ">=18"

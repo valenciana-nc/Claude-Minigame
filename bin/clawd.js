@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-// Clawd Runner — terminal CLI. `clawd` to play, ctrl+click the crab in your
+// Clawd Runner — terminal CLI. `claude-run` to play, ctrl+click the crab in your
 // Claude Code statusline to launch (see tools/ for the clawd:// protocol setup).
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../src/engine.js';
-import { altScreenOn, altScreenOff, home, clear } from '../src/ansi.js';
+import { altScreenOn, altScreenOff, home, clear, setTitle } from '../src/ansi.js';
+
+const APP_TITLE = 'Claude Runner';
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('clawd://'));
+if (args[0] === 'run') args.shift();
 const flag = (name) => args.includes(name);
 const opt = (name, dflt) => {
   const i = args.indexOf(name);
@@ -18,12 +21,14 @@ const opt = (name, dflt) => {
 if (flag('--help') || flag('-h')) {
   console.log(`Clawd Runner — the unofficial Claude Code minigame
 
-  clawd                play
-  clawd --snapshot N   render N frames of a bot run as plain text (debug/CI)
-  clawd --seed S       deterministic run
-  clawd --plain        no colors
+  claude-run                play
+  claude-run --snapshot N   render N frames of a bot run as plain text (debug/CI)
+  claude-run --seed S       deterministic run
+  claude-run --plain        no colors
 
-  keys: SPACE/↑ jump · ↓/S duck · P pause · R restart · Q quit`);
+  legacy: clawd run also works
+
+  keys: SPACE/↑ jump · ↓/S duck (dive in mid-air) · P pause · R restart · Q quit`);
   process.exit(0);
 }
 
@@ -46,12 +51,13 @@ if (flag('--snapshot')) {
   let printed = 0, ticks = 0;
   const printEvery = Number(opt('--every', 25));
   while (printed < frames && ticks < 10000) {
-    // tiny bot: jump low stuff, ignore high bugs
-    const next = game.obstacles.find((o) => o.x > 5);
-    if (next && game.y === 0 && game.mode === 'run') {
-      const eta = (next.x - 8) / game.speed;
-      const low = next.kind !== 'bug' || next.fly <= 2;
-      if (low && eta < 0.45) game.input('jump');
+    // tiny bot: jump cacti & low flyers, duck mid flyers
+    const next = game.obstacles.filter((o) => o.x + (o.w || 1) > 8).sort((a, b) => a.x - b.x)[0];
+    if (next && game.mode === 'run' && game.y === 0) {
+      const eta = (next.x - 9) / (game.speed * (next.speedMul || 1));
+      const flying = next.kind !== 'cactus';
+      if ((!flying || next.fly === 0) && eta < 0.4 && eta > -0.02) game.input('jump');
+      else if (flying && next.fly === 2 && eta < 0.28) game.input('duck');
     }
     if (game.mode === 'dead' && game.deadT > 0.6) game.input('jump');
     game.tick(dt);
@@ -77,6 +83,8 @@ const game = new Engine({
   hi: loadHi(),
 });
 
+process.title = APP_TITLE;
+
 let savedHi = game.hi;
 let cleanedUp = false;
 function cleanup(msg = '') {
@@ -91,11 +99,11 @@ function cleanup(msg = '') {
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding('utf8');
-process.stdout.write(altScreenOn);
+process.stdout.write(setTitle(APP_TITLE) + altScreenOn);
 
 process.stdin.on('data', (key) => {
   if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') {
-    cleanup(`thanks for playing! best: ${game.hi} — run \`clawd\` anytime 🦀`);
+    cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
     process.exit(0);
   }
   if (key === ' ' || key === '\x1b[A' || key === 'w' || key === 'W') game.input('jump');
@@ -115,9 +123,9 @@ process.on('SIGINT', () => { cleanup(); process.exit(0); });
 let last = Date.now();
 const timer = setInterval(() => {
   const now = Date.now();
-  const dt = Math.min(0.06, (now - last) / 1000);
+  const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   game.tick(dt);
   if (game.hi > savedHi && game.mode === 'dead') { savedHi = game.hi; saveHi(savedHi); }
   process.stdout.write(home + game.render());
-}, 33);
+}, 25); // ~40 fps for smoother scrolling

@@ -20,11 +20,11 @@ $game = Join-Path (Split-Path $PSScriptRoot -Parent) "bin\clawd.js"
 if (-not (Test-Path $game)) { throw "Game not found at $game" }
 
 New-Item -Path "$key\shell\open\command" -Force | Out-Null
-Set-ItemProperty -Path $key -Name "(Default)" -Value "URL:Clawd Runner"
+Set-ItemProperty -Path $key -Name "(Default)" -Value "URL:Claude Runner"
 New-ItemProperty -Path $key -Name "URL Protocol" -Value "" -PropertyType String -Force | Out-Null
 
 # `start` opens the game in a fresh window of the default terminal.
-$launch = "$env:SystemRoot\System32\cmd.exe /c start `"Clawd Runner`" `"$node`" `"$game`" `"%1`""
+$launch = "$env:SystemRoot\System32\cmd.exe /c start `"Claude Runner`" `"$node`" `"$game`" run `"%1`""
 Set-ItemProperty -Path "$key\shell\open\command" -Name "(Default)" -Value $launch
 
 Write-Host "clawd:// registered."

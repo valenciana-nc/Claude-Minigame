@@ -6,40 +6,50 @@ statusline and the game pops open in a new window, like the dino when the wifi d
 except your wifi is fine and you're just procrastinating.
 
 ```
- CLAWD RUNNER                                                 HI 00342  00128
-
-                                                                       ░░░░░
-                      ░░░░░
-
-      ▝▖▄▄▗▘
-     ▗██████▖
-     ▐█ ██ █▌                                     ▟▖ ▟▖
-      ▌▌  ▐▐                                      ▐▌ ▐▌
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔╌▔▔▔
- SPACE jump   ↓/S duck   P pause   R restart   Q quit
+ CLAWD RUNNER                                          HI 00536  00291
+            ░▒░                      ▄▄
+                                    ████          ░░░
+   ▃▃▄▄▅▅▄▄▃▃▂▂▂▂▃▃▄▄▅▅▅▄▄▃▃▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▃▃▃▃▃▃▃▃▃▃
+      █████████                              \o/
+      █ █████ █
+     ███████████              █ █                      ██
+      █████████               ███                      ██
+    ˙ █ █   █ █                █
+▔▔▔•▔▔·▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔
+ SPACE jump   ↓/S duck·dive   P pause   R restart   Q quit
 ```
 
-Zero dependencies. One file of physics. Day/night cycle. High scores. A crab.
+Zero dependencies. ~40 fps of pure-string rendering. Parallax dunes + drifting clouds,
+a day/night cycle with a sun, a moon and shooting stars. A square, pixel-traced Clawd
+with eight kinds of segfault-cactus, three flying enemies, dust kick-up, landing puffs
+and a death screen-shake. Procedural gaps that are always *fair* — and a high score.
 
 ## Play
 
 ```sh
 git clone https://github.com/<you>/claude-minigame
 cd claude-minigame
-npm link        # puts `clawd` on your PATH
-clawd
+npm link        # puts `claude-run` on your PATH
+claude-run
 ```
+
+`clawd run` still works as a legacy alias.
 
 | key | action |
 | --- | --- |
 | `SPACE` / `↑` / `W` | jump |
-| `↓` / `S` | duck (flying bugs!) |
+| `↓` / `S` | duck under mid flyers — **tap in mid-air to dive** (fast-fall) |
 | `P` | pause |
 | `R` | restart |
 | `Q` / `ESC` | quit |
 
-Score is distance. Speed ramps up. Bugs start flying at you after 100. Night falls
-every 480 points. That's it, that's the game.
+Score is distance. Speed ramps up smoothly (no sudden walls), and the gap before every
+obstacle is sized so it's always clearable — combos and tall cacti get extra room. Enemies
+start flying at you around 110 — wings flapping, beating in *faster* than the ground
+scrolls — coming low (jump), mid (duck) or as a rare 5-wide bird, and they'll never
+stack onto a cactus so you're never asked to jump and duck at once. Night falls every
+480 points, with stars and the odd shooting star. Jumps have a
+landing-buffer so a slightly-early press still hops. That's it, that's the game.
 
 ## Make Clawd clickable in Claude Code
 
@@ -102,7 +112,7 @@ npm unlink -g claude-minigame
 ```sh
 npm test                 # headless engine tests (physics, collisions, rendering)
 npm run snapshot         # render bot-played frames as plain text (debugging/CI)
-node bin/clawd.js --seed 7   # deterministic runs
+node bin/clawd.js run --seed 7   # deterministic runs
 ```
 
 The engine (`src/engine.js`) is pure simulation — no terminal I/O — so it's easy to
