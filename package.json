@@ -26,6 +26,7 @@
     "minigame"
   ],
   "files": [
+    "assets",
     "bin",
     "src",
     "tools"

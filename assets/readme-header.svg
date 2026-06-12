@@ -1,0 +1,99 @@
+<svg width="960" height="340" viewBox="0 0 960 340" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Clawd Runner</title>
+  <desc id="desc">A colorful terminal arcade banner with Clawd, flying bugs, cacti, and pixel art controls.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="960" y2="340" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#101827"/>
+      <stop offset="0.45" stop-color="#152036"/>
+      <stop offset="1" stop-color="#0B111E"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="36" y1="38" x2="924" y2="302" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F28A54"/>
+      <stop offset="0.28" stop-color="#F7C948"/>
+      <stop offset="0.56" stop-color="#35D0BA"/>
+      <stop offset="0.8" stop-color="#B779FF"/>
+      <stop offset="1" stop-color="#FF6DAE"/>
+    </linearGradient>
+    <filter id="softShadow" x="-8%" y="-12%" width="116%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#020617" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <style>
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .title { font: 900 76px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0; }
+    .subtitle { font: 600 22px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0; }
+    .badge { font: 800 16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0; }
+  </style>
+
+  <rect width="960" height="340" rx="30" fill="url(#bg)"/>
+  <rect x="22" y="22" width="916" height="296" rx="24" stroke="url(#rim)" stroke-width="4"/>
+  <rect x="40" y="42" width="880" height="258" rx="18" fill="#0F172A" stroke="#263247" stroke-width="2"/>
+  <rect x="40" y="42" width="880" height="42" rx="18" fill="#161F31"/>
+  <rect x="40" y="72" width="880" height="12" fill="#161F31"/>
+  <circle cx="68" cy="63" r="7" fill="#FF6B6B"/>
+  <circle cx="92" cy="63" r="7" fill="#FFD166"/>
+  <circle cx="116" cy="63" r="7" fill="#3DDC97"/>
+  <text class="mono" x="150" y="69" fill="#94A3B8" font-size="17">claude-run --arcade</text>
+
+  <path d="M42 244C122 225 171 258 247 236C321 214 388 230 454 211C542 185 626 228 702 202C776 177 841 192 918 171V300H42V244Z" fill="#172554" opacity="0.72"/>
+  <path d="M42 265C109 249 162 269 234 255C315 239 370 267 454 246C538 224 624 260 705 238C781 218 841 229 918 207V300H42V265Z" fill="#123B4E" opacity="0.78"/>
+  <path d="M40 278H920" stroke="#64748B" stroke-width="3" stroke-dasharray="18 11"/>
+  <path d="M40 286H920" stroke="#F28A54" stroke-width="2" stroke-dasharray="3 13" opacity="0.75"/>
+
+  <g filter="url(#softShadow)" transform="translate(74 116)">
+    <rect x="34" y="0" width="144" height="22" fill="#F79A57"/>
+    <rect x="18" y="22" width="176" height="28" fill="#F28A54"/>
+    <rect x="0" y="50" width="212" height="36" fill="#E77945"/>
+    <rect x="18" y="86" width="176" height="28" fill="#F28A54"/>
+    <rect x="36" y="114" width="30" height="22" fill="#D95F37"/>
+    <rect x="84" y="114" width="28" height="22" fill="#D95F37"/>
+    <rect x="146" y="114" width="30" height="22" fill="#D95F37"/>
+    <rect x="42" y="32" width="20" height="22" fill="#111827"/>
+    <rect x="150" y="32" width="20" height="22" fill="#111827"/>
+    <rect x="-24" y="57" width="24" height="26" fill="#F7C948"/>
+    <rect x="212" y="57" width="24" height="26" fill="#F7C948"/>
+    <rect x="-36" y="34" width="28" height="24" fill="#FF6B6B"/>
+    <rect x="220" y="34" width="28" height="24" fill="#FF6B6B"/>
+    <rect x="34" y="0" width="144" height="9" fill="#FFC078" opacity="0.65"/>
+    <rect x="18" y="22" width="176" height="8" fill="#FFC078" opacity="0.55"/>
+  </g>
+
+  <g class="mono" font-weight="900">
+    <text x="344" y="148" class="title" fill="#020617" opacity="0.7">CLAWD</text>
+    <text x="340" y="142" class="title" fill="#F8FAFC">CLAWD</text>
+    <text x="344" y="214" class="title" fill="#020617" opacity="0.7">RUNNER</text>
+    <text x="340" y="208" class="title" fill="#F28A54">RUNNER</text>
+    <text x="345" y="238" class="subtitle" fill="#CBD5E1">a colorful terminal crab minigame</text>
+  </g>
+
+  <g transform="translate(345 257)">
+    <rect x="0" y="0" width="118" height="30" rx="8" fill="#133527" stroke="#34D399"/>
+    <text class="badge" x="18" y="21" fill="#A7F3D0">ZERO DEPS</text>
+    <rect x="132" y="0" width="102" height="30" rx="8" fill="#1B3150" stroke="#38BDF8"/>
+    <text class="badge" x="153" y="21" fill="#BAE6FD">40 FPS</text>
+    <rect x="248" y="0" width="132" height="30" rx="8" fill="#3B214B" stroke="#D946EF"/>
+    <text class="badge" x="267" y="21" fill="#F5D0FE">FAIR GAPS</text>
+    <rect x="394" y="0" width="178" height="30" rx="8" fill="#412219" stroke="#FB923C"/>
+    <text class="badge" x="411" y="21" fill="#FED7AA">CTRL+CLICK PLAY</text>
+  </g>
+
+  <g class="mono" font-size="28" font-weight="900">
+    <text x="692" y="112" fill="#FF6DAE">\o/</text>
+    <text x="812" y="142" fill="#B779FF">×</text>
+    <text x="835" y="142" fill="#B779FF">×</text>
+    <text x="760" y="197" fill="#35D0BA">╲▂█▂╱</text>
+  </g>
+  <g fill="#70C66B">
+    <rect x="695" y="242" width="16" height="36"/>
+    <rect x="711" y="228" width="16" height="50"/>
+    <rect x="727" y="242" width="16" height="36"/>
+    <rect x="835" y="232" width="18" height="46"/>
+    <rect x="853" y="216" width="18" height="62"/>
+  </g>
+  <g fill="#F7C948" opacity="0.9">
+    <rect x="639" y="104" width="6" height="6"/>
+    <rect x="661" y="78" width="5" height="5"/>
+    <rect x="888" y="112" width="5" height="5"/>
+    <rect x="800" y="92" width="7" height="7"/>
+  </g>
+</svg>

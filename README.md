@@ -1,23 +1,17 @@
-# claude-minigame 🦀
+<p align="center">
+  <img src="./assets/readme-header.svg" alt="Clawd Runner, a colorful terminal crab minigame" width="920">
+</p>
+
+# Clawd Runner 🦀
 
 **Clawd Runner** — the Chrome-dino game, but it's Clawd (the Claude Code crab) dodging
 segfault cacti and flying bugs in your terminal. Ctrl+click the crab in your Claude Code
 statusline and the game pops open in a new window, like the dino when the wifi dies —
 except your wifi is fine and you're just procrastinating.
 
-```
- CLAWD RUNNER                                          HI 00536  00291
-            ░▒░                      ▄▄
-                                    ████          ░░░
-   ▃▃▄▄▅▅▄▄▃▃▂▂▂▂▃▃▄▄▅▅▅▄▄▃▃▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▃▃▃▃▃▃▃▃▃▃
-      █████████                              \o/
-      █ █████ █
-     ███████████              █ █                      ██
-      █████████               ███                      ██
-    ˙ █ █   █ █                █
-▔▔▔•▔▔·▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔╌▔▔▔▔▔
- SPACE jump   ↓/S duck·dive   P pause   R restart   Q quit
-```
+<p align="center">
+  <img src="./assets/minigame-preview.svg" alt="Color preview of Clawd Runner gameplay in a terminal" width="920">
+</p>
 
 Zero dependencies. ~40 fps of pure-string rendering. Parallax dunes + drifting clouds,
 a day/night cycle with a sun, a moon and shooting stars. A square, pixel-traced Clawd
