@@ -30,7 +30,7 @@ and a death screen-shake. Procedural gaps that are always *fair* — and a high 
 git clone https://github.com/<you>/claude-minigame
 cd claude-minigame
 npm link        # puts `claude-run` on your PATH
-claude-run
+claude-run or clawd run
 ```
 
 `clawd run` still works as a legacy alias.
