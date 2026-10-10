@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node bin/clawd.js run",
-    "test": "node test/engine.test.mjs",
+    "test": "node test/engine.test.mjs && node test/input.test.mjs",
     "snapshot": "node bin/clawd.js run --snapshot 8 --plain"
   },
   "engines": {

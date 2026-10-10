@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../src/engine.js';
+import { createKeyHandler } from '../src/input.js';
 import { altScreenOn, altScreenOff, home, clear, setTitle } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
@@ -104,16 +105,19 @@ process.stdin.resume();
 process.stdin.setEncoding('utf8');
 process.stdout.write(setTitle(APP_TITLE) + altScreenOn);
 
-process.stdin.on('data', (key) => {
-  if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') {
-    cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
-    process.exit(0);
-  }
-  if (key === ' ' || key === '\x1b[A' || key === 'w' || key === 'W') game.input('jump');
-  else if (key === '\x1b[B' || key === 's' || key === 'S') game.input('duck');
-  else if (key === 'p' || key === 'P') game.input('pause');
-  else if (key === 'r' || key === 'R') game.input('restart');
+// ESC/arrow-key disambiguation lives in src/input.js: a lone ESC chunk is
+// buffered briefly so a split arrow-key sequence can't quit the game mid-run.
+const keys = createKeyHandler({
+  onAction: (action) => {
+    if (action === 'quit') {
+      keys.cancel();
+      cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
+      process.exit(0);
+    }
+    game.input(action);
+  },
 });
+process.stdin.on('data', (key) => keys.data(key));
 
 process.stdout.on('resize', () => {
   game.resize(process.stdout.columns - 1, process.stdout.rows - 1);
