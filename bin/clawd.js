@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../src/engine.js';
+import { createKeyHandler } from '../src/input.js';
 import { altScreenOn, altScreenOff, home, clear, setTitle } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
@@ -24,6 +25,7 @@ if (flag('--help') || flag('-h')) {
   claude-run                play
   claude-run --snapshot N   render N frames of a bot run as plain text (debug/CI)
   claude-run --seed S       deterministic run
+  claude-run --skin claude  play as the Claude Code cloud instead of the crab
   claude-run --plain        no colors
 
   legacy: clawd run also works
@@ -41,11 +43,12 @@ function saveHi(hi) {
 }
 
 const seed = Number(opt('--seed', Date.now() % 2 ** 31));
+const skin = String(opt('--skin', 'clawd')).toLowerCase() === 'claude' ? 'claude' : 'clawd';
 
 // ---------- snapshot mode: headless bot run, prints frames ----------
 if (flag('--snapshot')) {
   const frames = Number(opt('--snapshot', 8));
-  const game = new Engine({ width: 78, height: 18, seed, hi: loadHi() });
+  const game = new Engine({ width: 78, height: 18, seed, hi: loadHi(), skin });
   game.input('jump'); // leave title screen
   const dt = 1 / 30;
   let printed = 0, ticks = 0;
@@ -81,6 +84,7 @@ const game = new Engine({
   height: process.stdout.rows - 1,
   seed,
   hi: loadHi(),
+  skin,
 });
 
 process.title = APP_TITLE;
@@ -101,16 +105,19 @@ process.stdin.resume();
 process.stdin.setEncoding('utf8');
 process.stdout.write(setTitle(APP_TITLE) + altScreenOn);
 
-process.stdin.on('data', (key) => {
-  if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') {
-    cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
-    process.exit(0);
-  }
-  if (key === ' ' || key === '\x1b[A' || key === 'w' || key === 'W') game.input('jump');
-  else if (key === '\x1b[B' || key === 's' || key === 'S') game.input('duck');
-  else if (key === 'p' || key === 'P') game.input('pause');
-  else if (key === 'r' || key === 'R') game.input('restart');
+// ESC/arrow-key disambiguation lives in src/input.js: a lone ESC chunk is
+// buffered briefly so a split arrow-key sequence can't quit the game mid-run.
+const keys = createKeyHandler({
+  onAction: (action) => {
+    if (action === 'quit') {
+      keys.cancel();
+      cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
+      process.exit(0);
+    }
+    game.input(action);
+  },
 });
+process.stdin.on('data', (key) => keys.data(key));
 
 process.stdout.on('resize', () => {
   game.resize(process.stdout.columns - 1, process.stdout.rows - 1);
