@@ -1,7 +1,7 @@
 // Headless engine tests. Run: npm test
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine.js';
-import { FLYERS } from '../src/sprites.js';
+import { FLYERS, CRAB, CLAUDE } from '../src/sprites.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -178,6 +178,22 @@ test('the orange Clawd runner renders at width W in every state', () => {
       assert.equal(line.length, c.W, 'every line must render at exactly W');
     }
   }
+});
+
+test('the claude skin renders at width W and falls back safely', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 11, skin: 'claude' });
+  assert.equal(g.skin, CLAUDE, 'skin option should select the claude sprite');
+  g.input('jump');
+  for (let i = 0; i < 200; i++) {
+    if (i === 30) g.input('jump');   // sample an airborne frame
+    if (i === 90) g.input('duck');   // sample a duck frame
+    g.tick(1 / 40);
+    for (const line of g.render({ color: false }).split('\n')) {
+      assert.equal(line.length, g.W, 'every line must render at exactly W');
+    }
+  }
+  const fallback = new Engine({ width: 78, height: 18, seed: 11, skin: 'banana' });
+  assert.equal(fallback.skin, CRAB, 'unknown skin names fall back to the crab');
 });
 
 console.log(`\n${passed} tests passed 🦀`);

@@ -2,7 +2,7 @@
 // No terminal I/O here — bin/clawd.js owns the screen and keyboard.
 
 import { COLORS, RESET } from './ansi.js';
-import { CACTI, FLYERS, CLOUDS, CRAB, TITLE, SUBTITLE } from './sprites.js';
+import { CACTI, FLYERS, CLOUDS, CRAB, CLAUDE, TITLE, SUBTITLE } from './sprites.js';
 
 const CRAB_X = 5;          // crab's fixed screen column
 const GRAVITY = 52;        // rows / s^2
@@ -39,9 +39,10 @@ function smoothNoise(x) {
 }
 
 export class Engine {
-  constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0 } = {}) {
+  constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0, skin = 'clawd' } = {}) {
     this.seed = seed;
     this.hi = hi;
+    this.skin = skin === 'claude' ? CLAUDE : CRAB; // unknown names fall back to the crab
     this.mode = 'title';
     this.t = 0;
     this.runCount = 0;
@@ -405,8 +406,8 @@ export class Engine {
       }
     }
 
-    // the runner - orange Clawd
-    const C = CRAB;
+    // the runner - Clawd, or the Claude Code cloud skin
+    const C = this.skin;
     const ducking = this.duckT > 0 && this.y === 0 && this.mode === 'run';
     let art;
     if (this.mode === 'dead') art = C.dead;

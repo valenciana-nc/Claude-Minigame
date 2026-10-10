@@ -33,7 +33,8 @@ npm link        # puts `claude-run` on your PATH
 claude-run
 ```
 
-`clawd run` still works as a legacy alias.
+`clawd run` still works as a legacy alias. Add `--skin claude` to play as the
+Claude Code cloud instead of the crab.
 
 | key | action |
 | --- | --- |
