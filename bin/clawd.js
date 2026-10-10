@@ -24,6 +24,7 @@ if (flag('--help') || flag('-h')) {
   claude-run                play
   claude-run --snapshot N   render N frames of a bot run as plain text (debug/CI)
   claude-run --seed S       deterministic run
+  claude-run --skin claude  play as the Claude Code cloud instead of the crab
   claude-run --plain        no colors
 
   legacy: clawd run also works
@@ -41,11 +42,12 @@ function saveHi(hi) {
 }
 
 const seed = Number(opt('--seed', Date.now() % 2 ** 31));
+const skin = String(opt('--skin', 'clawd')).toLowerCase() === 'claude' ? 'claude' : 'clawd';
 
 // ---------- snapshot mode: headless bot run, prints frames ----------
 if (flag('--snapshot')) {
   const frames = Number(opt('--snapshot', 8));
-  const game = new Engine({ width: 78, height: 18, seed, hi: loadHi() });
+  const game = new Engine({ width: 78, height: 18, seed, hi: loadHi(), skin });
   game.input('jump'); // leave title screen
   const dt = 1 / 30;
   let printed = 0, ticks = 0;
@@ -81,6 +83,7 @@ const game = new Engine({
   height: process.stdout.rows - 1,
   seed,
   hi: loadHi(),
+  skin,
 });
 
 process.title = APP_TITLE;

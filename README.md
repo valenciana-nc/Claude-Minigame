@@ -27,13 +27,14 @@ claude-run or clawd run
 Or run from source:
 
 ```sh
-git clone https://github.com/<you>/claude-minigame
-cd claude-minigame
+git clone https://github.com/valenciana-nc/Claude-Minigame
+cd Claude-Minigame
 npm link        # puts `claude-run` on your PATH
 claude-run
 ```
 
-`clawd run` still works as a legacy alias.
+`clawd run` still works as a legacy alias. Add `--skin claude` to play as the
+Claude Code cloud instead of the crab.
 
 | key | action |
 | --- | --- |
