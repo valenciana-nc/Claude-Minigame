@@ -120,9 +120,6 @@ export const FLYERS = [
   { w: 3, color: 'P', frames: ['<×>', '>×<'] },                 // glitch — skitters/jitters
   { w: 5, color: 'M', frames: ['╲▂█▂╱', '─▆█▆─', '╱▀█▀╲', '─▆█▆─'] }, // big bird — wingbeats
 ];
-// kept for back-compat with older callers/tests
-export const BUG = FLYERS[0];
-
 // Parallax clouds — soft, dim, various sizes. One or two rows.
 export const CLOUDS = [
   ['░░░'],
@@ -130,7 +127,6 @@ export const CLOUDS = [
   [' ░░░ ', '░▒▒▒░'],
   ['░░▒░░'],
 ];
-export const CLOUD = { color: 'D', rows: CLOUDS[0] };
 
 export const TITLE = 'C L A W D   R U N N E R';
 export const SUBTITLE = 'the unofficial Claude Code minigame';
