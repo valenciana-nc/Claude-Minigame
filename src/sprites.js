@@ -3,7 +3,6 @@
 // used for Clawd's eyes), anything else = drawn in the sprite's color.
 
 export const CRAB = {
-  w: 11,
   color: 'O',
   // Square-bodied Clawd, traced pixel-for-pixel from the mascot: flat-topped
   // head, two wide-set dark eyes, a cheek band that bulges one pixel wider on
@@ -52,7 +51,6 @@ export const CRAB = {
 // the three-quarter blocks ▟▙▜▛ so the corners read soft, not square.
 // Convention adds '#' = accent (white prompt); '█'/▟▙▜▛ = body; ' ' transparent.
 export const CLAUDE = {
-  w: 11,
   color: 'C',
   accent: 'W',
   // A round cloud: domed top (▄ caps), full equator, rounded bottom (▀ caps),

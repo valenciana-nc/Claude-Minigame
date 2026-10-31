@@ -29,8 +29,3 @@ export const altScreenOff = `${ESC}[?1049l${ESC}[?25h`;
 export const home = `${ESC}[H`;
 export const clear = `${ESC}[2J`;
 export const setTitle = (title) => `${ESC}]0;${String(title).replace(/[\x00-\x1f\x7f]/g, '')}\x07`;
-
-// OSC 8 terminal hyperlink — the whole trick behind "ctrl+click the crab".
-export function link(text, url) {
-  return `${ESC}]8;;${url}\x07${text}${ESC}]8;;\x07`;
-}
