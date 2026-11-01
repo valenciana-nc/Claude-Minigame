@@ -73,6 +73,36 @@ test('a split ↓ sequence ducks instead of quitting', () => {
   assert.deepEqual(t.actions, ['duck']);
 });
 
+test('a sequence split into three chunks still jumps', () => {
+  const t = harness();
+  t.h.data('\x1b'); // fragment 1
+  t.h.data('[');    // fragment 2 — a bare CSI prefix, not a dead sequence
+  t.h.data('A');    // fragment 3 — completes '\x1b[A'
+  assert.deepEqual(t.actions, ['jump'], 'ESC + [ + A must jump, not drop the key');
+  assert.equal(t.pendingTimers(), 0);
+});
+
+test('a sequence split into three chunks still ducks', () => {
+  const t = harness();
+  t.h.data('\x1b'); t.h.data('['); t.h.data('B');
+  assert.deepEqual(t.actions, ['duck']);
+});
+
+test('a parameterized CSI split across chunks never quits', () => {
+  const t = harness();
+  t.h.data('\x1b'); t.h.data('[1;5'); t.h.data('A'); // e.g. shift+↑, not a game key
+  assert.deepEqual(t.actions, [], 'an incomplete CSI must not become a quit');
+  t.fireTimers();
+  assert.deepEqual(t.actions, []);
+});
+
+test('an ESC followed by a whole sequence jumps instead of swallowing it', () => {
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('\x1b[A');
+  assert.deepEqual(t.actions, ['jump']);
+});
+
 test('cancel() drops a buffered ESC', () => {
   const t = harness();
   t.h.data('\x1b');

@@ -10,7 +10,20 @@
 // Pure logic — no terminal I/O — so it can be unit tested.
 
 export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTimeout, clearTimeoutFn = clearTimeout } = {}) {
-  let pending = null; // timeout id while a lone ESC is being disambiguated
+  let pending = null; // timeout id while a lone ESC / partial sequence is buffered
+  let buf = '';       // buffered ESC or partial CSI sequence (e.g. '\x1b[')
+  // A CSI sequence still waiting for its final byte: ESC [ + params only.
+  const CSI_PREFIX = /^\x1b\[[0-9;?]*$/;
+
+  function arm() {
+    pending = setTimeoutFn(() => {
+      pending = null;
+      const seq = buf; buf = '';
+      // Only a lone ESC counts as quit; a partial CSI that never completed
+      // (e.g. ESC '[' with no final byte) is dropped, never treated as ESC.
+      if (seq === '\x1b') handle('\x1b');
+    }, windowMs);
+  }
 
   function handle(key) {
     if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') return void onAction('quit');
@@ -23,18 +36,27 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
 
   function cancel() {
     if (pending !== null) { clearTimeoutFn(pending); pending = null; }
+    buf = '';
   }
 
   // Feed one raw-mode `data` chunk. Chunks are usually single keys or a whole
-  // escape sequence, but may also be a fragment of one.
+  // escape sequence, but may also be a fragment of one — including fragments
+  // split into three or more pieces (ESC, '[', 'A'), which the old code
+  // dropped: the '[' fragment was handled as a dead sequence and the 'A'
+  // then arrived alone and was ignored.
   function data(key) {
     if (pending !== null) {
-      cancel();              // a chunk followed the lone ESC — it's a sequence
-      handle('\x1b' + key);
+      clearTimeoutFn(pending); pending = null;
+      if (key === '\x1b') { buf = '\x1b'; arm(); return; } // double ESC: re-buffer
+      if (key.startsWith('\x1b')) { buf = ''; handle(key); return; } // fresh sequence wins
+      buf += key;
+      if (CSI_PREFIX.test(buf)) { arm(); return; } // still incomplete — wait for the final byte
+      handle(buf); buf = '';
       return;
     }
     if (key === '\x1b') {
-      pending = setTimeoutFn(() => { pending = null; handle('\x1b'); }, windowMs);
+      buf = '\x1b';
+      arm();
       return;
     }
     handle(key);
