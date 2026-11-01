@@ -94,6 +94,7 @@ let cleanedUp = false;
 function cleanup(msg = '') {
   if (cleanedUp) return;
   cleanedUp = true;
+  if (game.hi > savedHi) { savedHi = game.hi; saveHi(savedHi); } // quit mid-run keeps a beaten best
   clearInterval(timer);
   if (process.stdin.isTTY) process.stdin.setRawMode(false);
   process.stdout.write(altScreenOff);

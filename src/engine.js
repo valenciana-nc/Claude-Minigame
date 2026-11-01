@@ -142,6 +142,9 @@ export class Engine {
     // smooth speed ramp: 17 → ~48 cols/s, no kink
     this.speed = 17 + 31 * (this.dist / (this.dist + 1400));
     this.dist += this.speed * dt;
+    // Track the best live: quitting mid-run (Q) must not lose a beaten score,
+    // which the old death-only update did.
+    if (this.score > this.hi) { this.hi = this.score; this.newBest = true; }
     if (this.flashT > 0) this.flashT -= dt;
 
     const hundred = Math.floor(this.score / 100);
@@ -210,7 +213,6 @@ export class Engine {
         this._emit(CRAB_X + 5, 2, Math.cos(a) * (6 + this.vrng() * 16), 6 + this.vrng() * 10,
           0.5 + this.vrng() * 0.4, this.vrng() < 0.5 ? '▪' : '●', this.vrng() < 0.5 ? 'O' : 'o', 17);
       }
-      if (this.score > this.hi) { this.hi = this.score; this.newBest = true; }
     }
   }
 

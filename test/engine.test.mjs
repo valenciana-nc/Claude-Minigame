@@ -81,6 +81,16 @@ test('night mode renders stars without exploding', () => {
   assert.ok(out.includes('·'), 'expected stars at night');
 });
 
+test('hi-score updates live during the run, not only at death', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7, hi: 0 });
+  g.input('jump');
+  for (let i = 0; i < 60; i++) g.tick(1 / 30);
+  assert.equal(g.mode, 'run');
+  assert.ok(g.score > 0, 'run should have scored');
+  assert.equal(g.hi, g.score, 'a beaten best must be recorded before death');
+  assert.equal(g.newBest, true);
+});
+
 test('restart resets the run and keeps hi-score', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7, hi: 0 });
   g.input('jump');
