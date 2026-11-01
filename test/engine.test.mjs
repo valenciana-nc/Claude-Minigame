@@ -10,6 +10,20 @@ function test(name, fn) {
   passed++;
 }
 
+test('non-finite dimensions fall back to defaults instead of crashing render', () => {
+  const g = new Engine({ width: NaN, height: Infinity, seed: 1 });
+  assert.equal(g.W, 80);
+  assert.equal(g.H, 20);
+  g.input('jump');
+  for (let i = 0; i < 10; i++) g.tick(1 / 30);
+  for (const line of g.render({ color: false }).split('\n')) {
+    assert.equal(line.length, 80);
+  }
+  g.resize(NaN, NaN);
+  assert.equal(g.W, 80);
+  assert.equal(g.H, 20);
+});
+
 test('every rendered line is exactly W chars (plain mode)', () => {
   const g = new Engine({ width: 78, height: 18, seed: 1 });
   g.input('jump');

@@ -51,8 +51,13 @@ export class Engine {
   }
 
   resize(width, height) {
-    this.W = Math.max(60, Math.min(120, width));
-    this.H = Math.max(15, Math.min(30, height));
+    // Non-finite dimensions (NaN/Infinity from a broken terminal size query)
+    // used to poison W/H and crash render in _put (grid[NaN] is undefined).
+    // Fall back to the defaults instead of trusting the caller.
+    const w = Number.isFinite(width) ? width : 80;
+    const h = Number.isFinite(height) ? height : 20;
+    this.W = Math.max(60, Math.min(120, w));
+    this.H = Math.max(15, Math.min(30, h));
     this.groundRow = this.H - 2;
     this.grid = Array.from({ length: this.H }, () => new Array(this.W).fill(' '));
     this.col = Array.from({ length: this.H }, () => new Array(this.W).fill(''));
