@@ -335,12 +335,23 @@ export class Engine {
   _drawStars() {
     if (!this.night) return;
     const phase = Math.floor(this.dist / NIGHT_EVERY);
-    for (let r = 1; r < this.groundRow - 6; r++) {
-      for (let c = 0; c < this.W; c++) {
-        const h = hash2(c + phase * 31, r);
-        if (h % 47 === 0) { this.grid[r][c] = '·'; this.col[r][c] = 'S'; }
-        else if (h % 199 === 0) { this.grid[r][c] = '*'; this.col[r][c] = 'S'; }
+    // The star field depends only on the night phase and the grid size, so
+    // cache it instead of re-hashing every sky cell on every frame (~2.5k
+    // hash calls per frame at max size). Rebuilt when phase or size changes.
+    const cache = this._stars;
+    if (!cache || cache.phase !== phase || cache.W !== this.W || cache.H !== this.H) {
+      const cells = [];
+      for (let r = 1; r < this.groundRow - 6; r++) {
+        for (let c = 0; c < this.W; c++) {
+          const h = hash2(c + phase * 31, r);
+          if (h % 47 === 0) cells.push([r, c, '·']);
+          else if (h % 199 === 0) cells.push([r, c, '*']);
+        }
       }
+      this._stars = { phase, W: this.W, H: this.H, cells };
+    }
+    for (const [r, c, ch] of this._stars.cells) {
+      this.grid[r][c] = ch; this.col[r][c] = 'S';
     }
   }
 
