@@ -204,7 +204,13 @@ export class Engine {
       }
       if (ob.x < bound) ob.x = bound;
     }
-    this.obstacles = this.obstacles.filter((ob) => ob.x > -8);
+    // In-place compaction (order-preserving) instead of filter(): tick()
+    // runs ~40x/s and used to allocate a fresh obstacles array every tick.
+    let kept = 0;
+    for (let i = 0; i < this.obstacles.length; i++) {
+      if (this.obstacles[i].x > -8) this.obstacles[kept++] = this.obstacles[i];
+    }
+    this.obstacles.length = kept;
 
     this.spawnIn -= this.speed * dt;
     if (this.spawnIn <= 0) this._spawn();
@@ -295,7 +301,13 @@ export class Engine {
       p.vy -= p.g * dt;
       p.life -= dt;
     }
-    this.particles = this.particles.filter((p) => p.life > 0);
+    // In-place compaction (order-preserving) instead of filter(): same
+    // per-tick allocation story as the obstacles list above.
+    let kept = 0;
+    for (let i = 0; i < this.particles.length; i++) {
+      if (this.particles[i].life > 0) this.particles[kept++] = this.particles[i];
+    }
+    this.particles.length = kept;
   }
 
   // --- rendering ----------------------------------------------------------
