@@ -55,7 +55,7 @@ if (flag('--snapshot')) {
   const printEvery = Number(opt('--every', 25));
   while (printed < frames && ticks < 10000) {
     // tiny bot: jump cacti & low flyers, duck mid flyers
-    const next = game.obstacles.filter((o) => o.x + (o.w || 1) > 8).sort((a, b) => a.x - b.x)[0];
+    const next = game.obstacles.filter((o) => o.x + o.w > 8).sort((a, b) => a.x - b.x)[0];
     if (next && game.mode === 'run' && game.y === 0) {
       const eta = (next.x - 9) / (game.speed * (next.speedMul || 1));
       const flying = next.kind !== 'cactus';
