@@ -370,8 +370,9 @@ export class Engine {
   // A subtle, slow-scrolling dune crest on the horizon — one row, well above
   // the crab so the busy block sprites never fight the background.
   _drawHills() {
+    // No row guard needed: resize() clamps H to 15..30, so groundRow - 6
+    // is always >= 7 and this row is always on screen.
     const row = this.groundRow - 6;
-    if (row < 2) return;
     const blocks = ' ▁▂▃▄▅';
     const key = this.night ? 'S' : 'E';
     for (let c = 0; c < this.W; c++) {
