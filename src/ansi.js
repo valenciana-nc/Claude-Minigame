@@ -1,6 +1,8 @@
 // Minimal ANSI toolkit. No deps, truecolor (Windows Terminal, iTerm2, etc).
 
-export const ESC = '\x1b';
+// Internal only: no importer uses ESC directly (bin imports the built
+// sequences, engine imports COLORS/RESET), so it is not exported.
+const ESC = '\x1b';
 export const RESET = `${ESC}[0m`;
 
 // Color table. Keys are single chars so the render grid can store one per cell.
