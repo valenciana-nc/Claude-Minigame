@@ -30,6 +30,17 @@ function hash2(x, y) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
+// Order-preserving in-place compaction: drops elements `keep` rejects without
+// allocating a fresh array. tick() runs ~40x/s, so both the obstacle and the
+// particle lists used to pay a filter() allocation per frame; they share this.
+function compactInPlace(arr, keep) {
+  let kept = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (keep(arr[i])) arr[kept++] = arr[i];
+  }
+  arr.length = kept;
+}
+
 // Smooth value noise in [0,1] — rolling hills / dunes.
 function smoothNoise(x) {
   const xi = Math.floor(x), f = x - xi;
@@ -204,13 +215,7 @@ export class Engine {
       }
       if (ob.x < bound) ob.x = bound;
     }
-    // In-place compaction (order-preserving) instead of filter(): tick()
-    // runs ~40x/s and used to allocate a fresh obstacles array every tick.
-    let kept = 0;
-    for (let i = 0; i < this.obstacles.length; i++) {
-      if (this.obstacles[i].x > -8) this.obstacles[kept++] = this.obstacles[i];
-    }
-    this.obstacles.length = kept;
+    compactInPlace(this.obstacles, (ob) => ob.x > -8);
 
     this.spawnIn -= this.speed * dt;
     if (this.spawnIn <= 0) this._spawn();
@@ -301,13 +306,7 @@ export class Engine {
       p.vy -= p.g * dt;
       p.life -= dt;
     }
-    // In-place compaction (order-preserving) instead of filter(): same
-    // per-tick allocation story as the obstacles list above.
-    let kept = 0;
-    for (let i = 0; i < this.particles.length; i++) {
-      if (this.particles[i].life > 0) this.particles[kept++] = this.particles[i];
-    }
-    this.particles.length = kept;
+    compactInPlace(this.particles, (p) => p.life > 0);
   }
 
   // --- rendering ----------------------------------------------------------
