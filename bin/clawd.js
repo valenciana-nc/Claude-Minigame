@@ -90,11 +90,16 @@ const game = new Engine({
 process.title = APP_TITLE;
 
 let savedHi = game.hi;
+// One place for the persistence rule, used both by the interval (death saves
+// a beaten best promptly) and by cleanup (quit mid-run must not lose one).
+function saveIfBeaten() {
+  if (game.hi > savedHi) { savedHi = game.hi; saveHi(savedHi); }
+}
 let cleanedUp = false;
 function cleanup(msg = '') {
   if (cleanedUp) return;
   cleanedUp = true;
-  if (game.hi > savedHi) { savedHi = game.hi; saveHi(savedHi); } // quit mid-run keeps a beaten best
+  saveIfBeaten();
   clearInterval(timer);
   if (process.stdin.isTTY) process.stdin.setRawMode(false);
   process.stdout.write(altScreenOff);
@@ -134,6 +139,6 @@ const timer = setInterval(() => {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   game.tick(dt);
-  if (game.hi > savedHi && game.mode === 'dead') { savedHi = game.hi; saveHi(savedHi); }
+  if (game.mode === 'dead') saveIfBeaten();
   process.stdout.write(home + game.render());
 }, 25); // ~40 fps for smoother scrolling
