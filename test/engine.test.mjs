@@ -24,6 +24,19 @@ test('non-finite dimensions fall back to defaults instead of crashing render', (
   assert.equal(g.H, 20);
 });
 
+test('tick ignores a non-positive or non-finite dt instead of rewinding the sim', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 1 });
+  g.input('jump');
+  g.obstacles.push({ kind: 'flyer', x: 20, fly: 0, f: FLYERS[0], w: FLYERS[0].w, h: 1, speedMul: 1 });
+  for (let i = 0; i < 10; i++) g.tick(1 / 30);
+  const t = g.t, dist = g.dist;
+  for (const bad of [-5, 0, NaN, Infinity]) g.tick(bad);
+  assert.equal(g.t, t, 'sim time must not move backwards');
+  assert.equal(g.dist, dist, 'distance must not rewind');
+  // A negative t used to make the flyer frame index negative and crash render.
+  assert.doesNotThrow(() => g.render({ color: false }));
+});
+
 test('every rendered line is exactly W chars (plain mode)', () => {
   const g = new Engine({ width: 78, height: 18, seed: 1 });
   g.input('jump');

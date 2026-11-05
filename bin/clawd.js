@@ -146,7 +146,9 @@ process.stdin.on('error', () => { cleanup(); process.exit(0); });
 let last = Date.now();
 timer = setInterval(() => {
   const now = Date.now();
-  const dt = Math.min(0.05, (now - last) / 1000);
+  // Clamp both ways: a backwards clock must not feed a negative step into
+  // the sim (engine.tick also ignores those, this keeps `last` sane too).
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   game.tick(dt);
   if (game.mode === 'dead') saveIfBeaten();

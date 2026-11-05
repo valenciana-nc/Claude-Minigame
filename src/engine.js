@@ -147,6 +147,10 @@ export class Engine {
   // --- simulation ---------------------------------------------------------
 
   tick(dt) {
+    // A non-positive or non-finite step (backwards system clock, bad caller)
+    // must never move the sim backwards: a negative t makes the flyer frame
+    // index negative and crashes render. Ignore the step.
+    if (!Number.isFinite(dt) || dt <= 0) return;
     this.t += dt;
     this._updateParticles(dt);
     if (this.shakeT > 0) this.shakeT -= dt;
