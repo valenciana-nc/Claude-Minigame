@@ -90,12 +90,16 @@ const game = new Engine({
 process.title = APP_TITLE;
 
 let savedHi = game.hi;
+// Declared up here (not `const` at the bottom with the interval) so cleanup()
+// never trips over the temporal dead zone if startup throws before the timer
+// exists — the exit handler still has to restore the terminal then.
+let timer = null;
+let cleanedUp = false;
 // One place for the persistence rule, used both by the interval (death saves
 // a beaten best promptly) and by cleanup (quit mid-run must not lose one).
 function saveIfBeaten() {
   if (game.hi > savedHi) { savedHi = game.hi; saveHi(savedHi); }
 }
-let cleanedUp = false;
 function cleanup(msg = '') {
   if (cleanedUp) return;
   cleanedUp = true;
@@ -132,9 +136,15 @@ process.stdout.on('resize', () => {
 
 process.on('exit', () => cleanup());
 process.on('SIGINT', () => { cleanup(); process.exit(0); });
+// SIGTERM / SIGHUP / a stdin error (tty going away) bypass the normal exit
+// path, so without these the shell is left in raw mode on the alt screen.
+// Restore the terminal explicitly, same as Ctrl+C does.
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+process.on('SIGHUP', () => { cleanup(); process.exit(0); });
+process.stdin.on('error', () => { cleanup(); process.exit(0); });
 
 let last = Date.now();
-const timer = setInterval(() => {
+timer = setInterval(() => {
   const now = Date.now();
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
