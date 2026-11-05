@@ -47,12 +47,20 @@ const skin = String(opt('--skin', 'clawd')).toLowerCase() === 'claude' ? 'claude
 
 // ---------- snapshot mode: headless bot run, prints frames ----------
 if (flag('--snapshot')) {
-  const frames = Number(opt('--snapshot', 8));
+  // A numeric flag with garbage/zero/negative input (--snapshot abc, --every 0)
+  // used to make the print loop exit 0 having printed nothing: NaN and 0 both
+  // fail the loop condition from the start. Coerce to a positive integer,
+  // falling back to the default, so a typo still shows a run.
+  const positiveInt = (raw, dflt) => {
+    const n = Math.floor(Number(raw));
+    return Number.isFinite(n) && n > 0 ? n : dflt;
+  };
+  const frames = positiveInt(opt('--snapshot', 8), 8);
   const game = new Engine({ width: 78, height: 18, seed, hi: loadHi(), skin });
   game.input('jump'); // leave title screen
   const dt = 1 / 30;
   let printed = 0, ticks = 0;
-  const printEvery = Number(opt('--every', 25));
+  const printEvery = positiveInt(opt('--every', 25), 25);
   while (printed < frames && ticks < 10000) {
     // tiny bot: jump cacti & low flyers, duck mid flyers
     const next = game.obstacles.filter((o) => o.x + o.w > 8).sort((a, b) => a.x - b.x)[0];
