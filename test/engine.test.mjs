@@ -233,4 +233,30 @@ test('the claude skin renders at width W and falls back safely', () => {
   assert.equal(fallback.skin, CRAB, 'unknown skin names fall back to the crab');
 });
 
+test('same seed renders byte-identical frames across a full run', () => {
+  // Locks the determinism the snapshot workflow relies on (manual md5
+  // checks): same seed + same inputs must produce the same frames, so a
+  // refactor that changes the sim shows up here instead of in a diff.
+  function play(seed) {
+    const g = new Engine({ width: 78, height: 18, seed });
+    g.input('jump');
+    const frames = [];
+    for (let i = 0; i < 600 && g.mode !== 'dead'; i++) {
+      const f = g.obstacles.filter((o) => o.x + o.w > 8).sort((p, q) => p.x - q.x)[0];
+      if (f && g.mode === 'run') {
+        const flying = f.kind !== 'cactus';
+        const lead = (f.x - 10) / (g.speed * (f.speedMul || 1));
+        if ((!flying || f.fly === 0) && g.y === 0 && lead < 0.4 && lead > -0.02) g.input('jump');
+        if (flying && f.fly === 2 && g.y === 0 && lead < 0.28) g.input('duck');
+      }
+      g.tick(1 / 40);
+      if (i % 50 === 0) frames.push(g.render({ color: false }));
+    }
+    return frames.join('\n===\n');
+  }
+  const a = play(42), b = play(42);
+  assert.equal(a, b, 'same seed must render identically');
+  assert.notEqual(a, play(43), 'different seeds must diverge (guards a vacuous pass)');
+});
+
 console.log(`\n${passed} tests passed 🦀`);
