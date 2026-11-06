@@ -233,6 +233,44 @@ test('the claude skin renders at width W and falls back safely', () => {
   assert.equal(fallback.skin, CRAB, 'unknown skin names fall back to the crab');
 });
 
+test('color mode emits ANSI escapes, plain mode emits none', () => {
+  // The default render path is color; nothing asserted it actually
+  // produces escape sequences (or that --plain strips them).
+  const g = new Engine({ width: 78, height: 18, seed: 2 });
+  g.input('jump');
+  for (let i = 0; i < 30; i++) g.tick(1 / 40);
+  assert.ok(g.render({ color: true }).includes('\x1b['), 'color render must carry ANSI codes');
+  assert.ok(!g.render({ color: false }).includes('\x1b'), 'plain render must be escape-free');
+});
+
+test('particle count never exceeds the cap over a long run', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 2 });
+  g.input('jump');
+  let maxSeen = 0, everAny = false;
+  for (let i = 0; i < 3000 && g.mode !== 'dead'; i++) {
+    if (i % 25 === 0) g.input('jump'); // jump + land + dust churn
+    g.tick(1 / 40);
+    maxSeen = Math.max(maxSeen, g.particles.length);
+    if (g.particles.length > 0) everAny = true;
+  }
+  assert.ok(everAny, 'the run must actually emit particles (guards a vacuous pass)');
+  assert.ok(maxSeen <= 160, `particles peaked at ${maxSeen}, over the 160 cap`);
+});
+
+test('night stars survive a resize (star cache rebuilds)', () => {
+  // The star field is cached per phase + grid size (Nov 2 perf change);
+  // a resize must rebuild it, not serve a stale field for the old size.
+  const g = new Engine({ width: 78, height: 18, seed: 6 });
+  g.input('jump');
+  g.dist = 2500; // forced night
+  g.tick(1 / 30);
+  assert.ok(g.render({ color: false }).includes('·'), 'expected stars at night');
+  g.resize(100, 20);
+  g.tick(1 / 30);
+  assert.ok(g.night, 'still night after the resize');
+  assert.ok(g.render({ color: false }).includes('·'), 'stars must survive a resize');
+});
+
 test('death cooldown: jumping too soon after death does nothing', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7, hi: 0 });
   g.input('jump');
