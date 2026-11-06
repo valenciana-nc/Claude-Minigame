@@ -233,6 +233,44 @@ test('the claude skin renders at width W and falls back safely', () => {
   assert.equal(fallback.skin, CRAB, 'unknown skin names fall back to the crab');
 });
 
+test('death cooldown: jumping too soon after death does nothing', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7, hi: 0 });
+  g.input('jump');
+  g.obstacles.push({ kind: 'cactus', x: 8, c: { w: 2, h: 2, rows: ['▟▖', '▐▌'], color: 'G' }, w: 2, h: 2 });
+  for (let i = 0; i < 60 && g.mode !== 'dead'; i++) g.tick(1 / 30);
+  assert.equal(g.mode, 'dead');
+  g.input('jump'); // inside the 0.5 s cooldown — must not restart
+  assert.equal(g.mode, 'dead', 'a jump during the death cooldown must be ignored');
+  g.tick(0.6);
+  g.input('jump');
+  assert.equal(g.mode, 'run', 'the same jump after the cooldown restarts');
+});
+
+test('pause blocks jumping and freezes the run', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  g.input('pause');
+  assert.equal(g.paused, true);
+  g.input('jump'); // paused — must not launch
+  assert.equal(g.y, 0, 'a paused crab must stay on the ground');
+  const dist = g.dist;
+  g.tick(1 / 30);
+  assert.equal(g.dist, dist, 'a paused run must not advance');
+  g.input('pause'); // unpause
+  g.tick(1 / 30);
+  assert.ok(g.dist > dist, 'unpausing must resume the run');
+});
+
+test('duck and pause are no-ops on the title screen', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  assert.equal(g.mode, 'title');
+  g.input('duck');
+  g.input('pause');
+  assert.equal(g.mode, 'title', 'title screen must not react to duck/pause');
+  assert.equal(g.paused, false);
+  assert.equal(g.duckT, 0);
+});
+
 test('same seed renders byte-identical frames across a full run', () => {
   // Locks the determinism the snapshot workflow relies on (manual md5
   // checks): same seed + same inputs must produce the same frames, so a
