@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../src/engine.js';
 import { createKeyHandler } from '../src/input.js';
-import { altScreenOn, altScreenOff, home, clear, setTitle } from '../src/ansi.js';
+import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
 
@@ -103,6 +103,11 @@ let savedHi = game.hi;
 // exists — the exit handler still has to restore the terminal then.
 let timer = null;
 let cleanedUp = false;
+// Last frame actually written: dedupeFrame() skips the write when the new
+// frame is byte-identical, so the title screen and a paused game stop
+// re-emitting the same string 40x/s. Reset on resize — the clear below wipes
+// the screen, so the next frame must be re-emitted even if identical.
+let lastFrame = '';
 // One place for the persistence rule, used both by the interval (death saves
 // a beaten best promptly) and by cleanup (quit mid-run must not lose one).
 function saveIfBeaten() {
@@ -140,6 +145,7 @@ process.stdin.on('data', (key) => keys.data(key));
 process.stdout.on('resize', () => {
   game.resize(process.stdout.columns - 1, process.stdout.rows - 1);
   process.stdout.write(clear);
+  lastFrame = '';
 });
 
 process.on('exit', () => cleanup());
@@ -160,5 +166,7 @@ timer = setInterval(() => {
   last = now;
   game.tick(dt);
   if (game.mode === 'dead') saveIfBeaten();
-  process.stdout.write(home + game.render());
+  const frame = game.render();
+  process.stdout.write(dedupeFrame(lastFrame, frame));
+  lastFrame = frame;
 }, 25); // ~40 fps for smoother scrolling

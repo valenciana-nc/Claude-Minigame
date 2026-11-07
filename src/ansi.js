@@ -30,4 +30,15 @@ export const altScreenOn = `${ESC}[?1049h${ESC}[?25l${ESC}[2J${ESC}[H`;
 export const altScreenOff = `${ESC}[?1049l${ESC}[?25h`;
 export const home = `${ESC}[H`;
 export const clear = `${ESC}[2J`;
+
+// Frame dedup — the cheap half of the buffer-diffing terminal UIs (blessed,
+// Ink) use: they only emit what changed since the last frame. Full per-cell
+// diffing is overkill here (the scene scrolls, so most lines change every
+// tick while playing), but the whole-frame case is real: the title screen
+// and a paused game render the same string 40x/s. Returns '' when the frame
+// is unchanged, so the caller can skip the write entirely; otherwise the
+// frame prefixed with `home`, exactly what the loop used to write.
+export function dedupeFrame(prev, frame) {
+  return prev === frame ? '' : home + frame;
+}
 export const setTitle = (title) => `${ESC}]0;${String(title).replace(/[\x00-\x1f\x7f]/g, '')}\x07`;
