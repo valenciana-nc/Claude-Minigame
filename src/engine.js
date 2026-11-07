@@ -151,6 +151,10 @@ export class Engine {
     // must never move the sim backwards: a negative t makes the flyer frame
     // index negative and crashes render. Ignore the step.
     if (!Number.isFinite(dt) || dt <= 0) return;
+    // A paused game is frozen solid: the clock, the particles and the timers
+    // must not advance, or the PAUSED screen keeps animating — flyers flap
+    // and dust falls — and no two paused frames are ever identical.
+    if (this.paused) return;
     this.t += dt;
     this._updateParticles(dt);
     if (this.shakeT > 0) this.shakeT -= dt;

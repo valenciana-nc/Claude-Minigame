@@ -299,6 +299,28 @@ test('pause blocks jumping and freezes the run', () => {
   assert.ok(g.dist > dist, 'unpausing must resume the run');
 });
 
+test('pause freezes the clock and the rendered frame', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  g.input('jump'); // dust particles in the air
+  for (let i = 0; i < 30; i++) g.tick(1 / 30);
+  // A flyer on screen guarantees the frame would animate if the clock ran:
+  // its wing frame is Math.floor(t * 11) % frames.length.
+  g.obstacles.push({ kind: 'flyer', x: 20, fly: 0, f: FLYERS[0], w: FLYERS[0].w, h: 1, speedMul: 1 });
+  g.input('pause');
+  const t = g.t;
+  const frame = g.render({ color: false });
+  for (let i = 0; i < 30; i++) {
+    g.tick(1 / 30);
+    assert.equal(g.render({ color: false }), frame, 'a paused frame must not change');
+  }
+  assert.equal(g.t, t, 'sim time must not advance while paused');
+  g.input('pause'); // unpause
+  for (let i = 0; i < 10; i++) g.tick(1 / 30);
+  assert.ok(g.t > t, 'unpausing must resume the clock');
+  assert.notEqual(g.render({ color: false }), frame, 'unpausing must animate again (guards a vacuous pass)');
+});
+
 test('duck and pause are no-ops on the title screen', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7 });
   assert.equal(g.mode, 'title');
