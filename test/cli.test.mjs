@@ -23,6 +23,29 @@ function frameCount(out) {
   return out.split('\n').filter((l) => l.startsWith('--- frame')).length;
 }
 
+test('--snapshot=2 prints 2 frames (equals form)', () => {
+  const r = run(['--snapshot=2', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0, 'the --flag=value form must reach snapshot mode');
+  assert.equal(frameCount(r.stdout), 2, 'expected the 2 requested frames');
+});
+
+test('--seed=7 matches --seed 7 output', () => {
+  const a = run(['--snapshot', '2', '--plain', '--seed=7']);
+  const b = run(['--snapshot', '2', '--plain', '--seed', '7']);
+  assert.equal(a.status, 0);
+  assert.equal(a.stdout, b.stdout, 'both spellings must seed the same run');
+});
+
+test('--skin=claude snapshot renders the cloud skin', () => {
+  // '▟' only appears in the cloud sprite's rounded corners, never in the
+  // crab or the scenery, so it distinguishes the skins in plain mode.
+  const claude = run(['--snapshot', '1', '--plain', '--seed', '7', '--skin=claude']);
+  const clawd = run(['--snapshot', '1', '--plain', '--seed', '7']);
+  assert.equal(claude.status, 0);
+  assert.ok(claude.stdout.includes('▟'), 'claude skin must render its cloud sprite');
+  assert.ok(!clawd.stdout.includes('▟'), 'default skin must stay the crab');
+});
+
 test('--snapshot abc falls back to the default 8 frames instead of printing nothing', () => {
   const r = run(['--snapshot', 'abc', '--plain', '--seed', '7']);
   assert.equal(r.status, 0, 'garbage --snapshot must still exit 0');

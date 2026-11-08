@@ -13,10 +13,18 @@ const APP_TITLE = 'Claude Runner';
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith('clawd://'));
 if (args[0] === 'run') args.shift();
-const flag = (name) => args.includes(name);
+// A flag may be spelled `--name value` or `--name=value`. The `=` form
+// used to be silently ignored: `--snapshot=8` fell through to interactive
+// mode, `--seed=7` played a random run, `--skin=claude` stayed the crab.
+const flag = (name) => args.some((a) => a === name || a.startsWith(name + '='));
 const opt = (name, dflt) => {
-  const i = args.indexOf(name);
-  return i !== -1 && args[i + 1] ? args[i + 1] : dflt;
+  const i = args.findIndex((a) => a === name || a.startsWith(name + '='));
+  if (i === -1) return dflt;
+  if (args[i].startsWith(name + '=')) {
+    const v = args[i].slice(name.length + 1);
+    return v ? v : dflt;
+  }
+  return args[i + 1] ? args[i + 1] : dflt;
 };
 
 if (flag('--help') || flag('-h')) {
