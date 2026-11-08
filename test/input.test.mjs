@@ -103,6 +103,38 @@ test('an ESC followed by a whole sequence jumps instead of swallowing it', () =>
   assert.deepEqual(t.actions, ['jump']);
 });
 
+test('a partial CSI arriving as its own chunk still jumps', () => {
+  // The terminal can split an arrow key as '\x1b[' + 'A' — the first chunk
+  // is only a CSI prefix, not a complete key, so it must be buffered and
+  // recombined, not dropped as an unknown sequence.
+  const t = harness();
+  t.h.data('\x1b[');
+  assert.deepEqual(t.actions, [], 'a bare CSI prefix must not act yet');
+  t.h.data('A');
+  assert.deepEqual(t.actions, ['jump'], 'CSI prefix + final byte must jump');
+  assert.equal(t.pendingTimers(), 0);
+});
+
+test('a partial CSI after a buffered ESC still jumps', () => {
+  // ESC, then a fresh partial CSI, then the final byte: the middle chunk
+  // used to be handled (and dropped) immediately, losing the arrow press.
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('\x1b[');
+  t.h.data('A');
+  assert.deepEqual(t.actions, ['jump']);
+  assert.equal(t.pendingTimers(), 0);
+});
+
+test('a partial parameterized CSI arriving fresh never quits', () => {
+  const t = harness();
+  t.h.data('\x1b[1;5'); // e.g. ctrl+↑ split before its final byte
+  t.h.data('A');
+  assert.deepEqual(t.actions, [], 'an incomplete CSI must not become a quit');
+  t.fireTimers();
+  assert.deepEqual(t.actions, []);
+});
+
 test('cancel() drops a buffered ESC', () => {
   const t = harness();
   t.h.data('\x1b');

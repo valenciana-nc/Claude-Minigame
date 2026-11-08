@@ -48,6 +48,11 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
     if (pending !== null) {
       clearTimeoutFn(pending); pending = null;
       if (key === '\x1b') { buf = '\x1b'; arm(); return; } // double ESC: re-buffer
+      // A fresh chunk that is itself only a CSI prefix (e.g. '\x1b[' split
+      // off from its final byte) must be buffered like the first ESC was —
+      // handling it now drops it as unknown, and the final byte then
+      // arrives alone and is ignored too, so the arrow press is lost.
+      if (key.startsWith('\x1b') && CSI_PREFIX.test(key)) { buf = key; arm(); return; }
       if (key.startsWith('\x1b')) { buf = ''; handle(key); return; } // fresh sequence wins
       buf += key;
       if (CSI_PREFIX.test(buf)) { arm(); return; } // still incomplete — wait for the final byte
@@ -59,6 +64,10 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
       arm();
       return;
     }
+    // A chunk that is only the head of a CSI sequence — the terminal split
+    // it before the final byte — is a partial sequence, not an unknown key.
+    // Buffer it and wait; dropping it here loses the whole arrow press.
+    if (CSI_PREFIX.test(key)) { buf = key; arm(); return; }
     handle(key);
   }
 
