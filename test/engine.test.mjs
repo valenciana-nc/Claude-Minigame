@@ -321,6 +321,37 @@ test('pause freezes the clock and the rendered frame', () => {
   assert.notEqual(g.render({ color: false }), frame, 'unpausing must animate again (guards a vacuous pass)');
 });
 
+test('a large dt cannot tunnel an obstacle past the crab', () => {
+  // One tick(1) used to move a cactus from x=20 to x=3 in a single step,
+  // jumping clean over the crab's collision window without ever colliding.
+  const g = new Engine({ width: 78, height: 18, seed: 3 });
+  g.input('jump');
+  g.spawnIn = 1e9;
+  g.obstacles.push({ kind: 'cactus', x: 20, c: { w: 2, h: 2, rows: ['▟▖', '▐▌'], color: 'G' }, w: 2, h: 2 });
+  g.tick(1);
+  assert.equal(g.mode, 'dead', 'the cactus must cross the crab, not teleport past it');
+});
+
+test('a large dt still launches a jump instead of collapsing the arc', () => {
+  // One tick(0.5) used to collapse the whole jump into a single Euler
+  // step: vy went negative at once and y never left 0.
+  const g = new Engine({ width: 78, height: 18, seed: 2 });
+  g.input('jump');
+  g.input('jump');
+  g.tick(0.5);
+  assert.ok(g.y > 0, 'a jump must leave the ground even on a big step');
+  for (let i = 0; i < 120; i++) g.tick(1 / 30);
+  assert.equal(g.y, 0, 'the crab must still land (guards a vacuous pass)');
+});
+
+test('an absurd dt is capped instead of wedging the sim', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 2 });
+  g.input('jump');
+  g.tick(3600); // must return promptly — total dt caps at 1 s
+  assert.ok(g.t <= 1, 'sim time must not advance by the full absurd step');
+  assert.doesNotThrow(() => g.render({ color: false }));
+});
+
 test('duck and pause are no-ops on the title screen', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7 });
   assert.equal(g.mode, 'title');

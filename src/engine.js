@@ -155,6 +155,22 @@ export class Engine {
     // must not advance, or the PAUSED screen keeps animating — flyers flap
     // and dust falls — and no two paused frames are ever identical.
     if (this.paused) return;
+    // One big step breaks the sim two ways: an obstacle can jump clean over
+    // the crab's collision window in a single move (tunnelling — a cactus
+    // at x=20 sails past on a tick(1) without ever colliding), and a jump's
+    // whole arc collapses into one Euler step (vy goes negative at once, so
+    // y never leaves 0). Split big steps into <= 1/20 s substeps so the
+    // collision check sees every crossing. Total dt is capped at 1 s so a
+    // stalled caller can't wedge the loop with an absurd step.
+    let remaining = Math.min(dt, 1);
+    while (remaining > 0) {
+      const step = Math.min(1 / 20, remaining);
+      remaining -= step;
+      this._step(step);
+    }
+  }
+
+  _step(dt) {
     this.t += dt;
     this._updateParticles(dt);
     if (this.shakeT > 0) this.shakeT -= dt;
