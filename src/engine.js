@@ -519,8 +519,30 @@ export class Engine {
       oy = Math.round(Math.cos(this.t * 47) * mag * 0.5);
     }
 
-    // flush grid -> string
+    // flush grid -> string. Screen shake is rare (only while shakeT > 0
+    // right after a death), so the common no-shake frame takes a fast path
+    // that skips the per-cell bounds math: with ox = oy = 0 every source
+    // cell is in bounds by construction, and the general loop below is
+    // only needed while the frame is actually shifted.
     const out = [];
+    if (ox === 0 && oy === 0) {
+      for (let r = 0; r < this.H; r++) {
+        const grow = this.grid[r], crow = this.col[r];
+        let line = '', cur = '';
+        for (let c = 0; c < this.W; c++) {
+          const key = color ? crow[c] : '';
+          if (key !== cur) {
+            line += cur ? RESET : '';
+            line += key ? COLORS[key] : '';
+            cur = key;
+          }
+          line += grow[c];
+        }
+        if (cur) line += RESET;
+        out.push(line);
+      }
+      return out.join('\n');
+    }
     for (let r = 0; r < this.H; r++) {
       const sr = r - oy;
       let line = '', cur = '';

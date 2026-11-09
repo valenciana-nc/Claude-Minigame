@@ -414,4 +414,25 @@ test('nearestObstacle agrees with the filter().sort() selection it replaces', ()
   }
 });
 
+test('render fast path and shake path agree when the shake offset is zero', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  for (let i = 0; i < 120; i++) g.tick(1 / 30); // mid-run scene, obstacles + dust
+  const plain = g.render({ color: false });
+  const colored = g.render();
+  // A dying shake so small its offset rounds to zero still takes the
+  // general (shifted) loop; the output must be identical to the fast path.
+  g.shakeT = 0.01;
+  assert.equal(g.render({ color: false }), plain);
+  assert.equal(g.render(), colored);
+  // And a real shake still shifts the frame instead of crashing or
+  // changing its dimensions: H lines, each W chars when plain.
+  g.shakeT = 0.4;
+  g.t = Math.PI / 126; // sin(t*63) = 1, so ox = 2, oy = 0
+  const shaken = g.render({ color: false }).split('\n');
+  assert.equal(shaken.length, 18);
+  for (const line of shaken) assert.equal(line.length, 78);
+  assert.notEqual(shaken.join('\n'), plain, 'a real shake must visibly shift the frame');
+});
+
 console.log(`\n${passed} tests passed 🦀`);
