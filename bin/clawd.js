@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Engine } from '../src/engine.js';
+import { Engine, nearestObstacle } from '../src/engine.js';
 import { createKeyHandler } from '../src/input.js';
 import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame } from '../src/ansi.js';
 
@@ -71,7 +71,7 @@ if (flag('--snapshot')) {
   const printEvery = positiveInt(opt('--every', 25), 25);
   while (printed < frames && ticks < 10000) {
     // tiny bot: jump cacti & low flyers, duck mid flyers
-    const next = game.obstacles.filter((o) => o.x + o.w > 8).sort((a, b) => a.x - b.x)[0];
+    const next = nearestObstacle(game.obstacles, 8);
     if (next && game.mode === 'run' && game.y === 0) {
       const eta = (next.x - 9) / (game.speed * (next.speedMul || 1));
       const flying = next.kind !== 'cactus';
