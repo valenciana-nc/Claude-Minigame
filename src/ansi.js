@@ -28,7 +28,9 @@ export const COLORS = {
 
 export const altScreenOn = `${ESC}[?1049h${ESC}[?25l${ESC}[2J${ESC}[H`;
 export const altScreenOff = `${ESC}[?1049l${ESC}[?25h`;
-export const home = `${ESC}[H`;
+// Internal only: the only consumer is dedupeFrame() below — no importer
+// (bin imports the built sequences) uses it directly, so it is not exported.
+const home = `${ESC}[H`;
 export const clear = `${ESC}[2J`;
 
 // Frame dedup — the cheap half of the buffer-diffing terminal UIs (blessed,
