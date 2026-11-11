@@ -5,7 +5,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Engine, nearestObstacle } from '../src/engine.js';
+import { Engine } from '../src/engine.js';
+import { nearestObstacle } from '../src/util.js';
 import { createKeyHandler } from '../src/input.js';
 import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame } from '../src/ansi.js';
 
