@@ -1,17 +1,17 @@
-// Clawd Runner game engine. Pure simulation + rendering to a string.
-// No terminal I/O here — bin/clawd.js owns the screen and keyboard.
+// Clawd Runner game engine. Pure simulation — no terminal I/O and no
+// rendering here: bin/clawd.js owns the screen and keyboard, and
+// src/render.js turns Engine state into a frame string.
 
-import { COLORS, RESET } from './ansi.js';
-import { CACTI, FLYERS, CLOUDS, CRAB, CLAUDE, TITLE, SUBTITLE } from './sprites.js';
+import { CACTI, FLYERS, CRAB, CLAUDE } from './sprites.js';
+import { CRAB_X, NIGHT_EVERY } from './util.js';
+import { Renderer } from './render.js';
 
-const CRAB_X = 5;          // crab's fixed screen column
 const GRAVITY = 52;        // rows / s^2
 const JUMP_VY = 21;        // rows / s  (apex ≈ 4.2 rows, hang ≈ 0.8 s)
 const FASTFALL = 2.4;      // gravity multiplier while fast-falling (↓ in air)
 const DUCK_TIME = 0.5;     // s per duck press
 const JUMP_BUFFER = 0.12;  // s — a jump pressed this soon before landing still fires
 const DEATH_COOLDOWN = 0.5;
-const NIGHT_EVERY = 2400;  // distance cols per day/night phase
 const MAX_PARTICLES = 160;
 
 function mulberry32(seed) {
@@ -22,12 +22,6 @@ function mulberry32(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function hash2(x, y) {
-  let h = (x * 374761393 + y * 668265263) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
 }
 
 // Order-preserving in-place compaction: drops elements `keep` rejects without
@@ -41,33 +35,6 @@ function compactInPlace(arr, keep) {
   arr.length = kept;
 }
 
-// Smooth value noise in [0,1] — rolling hills / dunes.
-function smoothNoise(x) {
-  const xi = Math.floor(x), f = x - xi;
-  const a = (hash2(xi, 7) % 1000) / 1000, b = (hash2(xi + 1, 7) % 1000) / 1000;
-  const u = f * f * (3 - 2 * f);
-  return a * (1 - u) + b * u;
-}
-
-// One composed row -> string, with the color state machine (emit a color
-// escape only when the key changes, reset at the end). Both flush paths in
-// render() share it: the fast path passes the grid row straight through,
-// the shake path passes a shifted copy built for that row.
-function flushRow(chars, keys, color) {
-  let line = '', cur = '';
-  for (let c = 0; c < chars.length; c++) {
-    const key = color ? keys[c] : '';
-    if (key !== cur) {
-      line += cur ? RESET : '';
-      line += key ? COLORS[key] : '';
-      cur = key;
-    }
-    line += chars[c];
-  }
-  if (cur) line += RESET;
-  return line;
-}
-
 export class Engine {
   constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0, skin = 'clawd' } = {}) {
     this.seed = seed;
@@ -76,6 +43,7 @@ export class Engine {
     this.mode = 'title';
     this.t = 0;
     this.runCount = 0;
+    this.renderer = new Renderer();
     this.resize(width, height);
     this._initRun();
   }
@@ -89,8 +57,6 @@ export class Engine {
     this.W = Math.max(60, Math.min(120, w));
     this.H = Math.max(15, Math.min(30, h));
     this.groundRow = this.H - 2;
-    this.grid = Array.from({ length: this.H }, () => new Array(this.W).fill(' '));
-    this.col = Array.from({ length: this.H }, () => new Array(this.W).fill(''));
   }
 
   _initRun() {
@@ -360,199 +326,10 @@ export class Engine {
   }
 
   // --- rendering ----------------------------------------------------------
-
-  _blank() {
-    for (let r = 0; r < this.H; r++) {
-      this.grid[r].fill(' ');
-      this.col[r].fill('');
-    }
-  }
-
-  // `accentKey`, when given, recolors '#' cells (the skin's `>_` prompt) and
-  // paints them as solid blocks — lets one sprite carry two colors.
-  _put(x, y, rows, colorKey, accentKey) {
-    for (let r = 0; r < rows.length; r++) {
-      const line = rows[r];
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === ' ') continue;
-        const gx = Math.round(x) + i, gy = y + r;
-        if (gx < 0 || gx >= this.W || gy < 0 || gy >= this.H) continue;
-        if (ch === '.') { this.grid[gy][gx] = ' '; this.col[gy][gx] = ''; }
-        else if (ch === '#' && accentKey) { this.grid[gy][gx] = '█'; this.col[gy][gx] = accentKey; }
-        else { this.grid[gy][gx] = ch; this.col[gy][gx] = colorKey; }
-      }
-    }
-  }
-
-  _text(x, y, str, colorKey) {
-    this._put(x, y, [str.replaceAll(' ', '.')], colorKey);
-  }
-
-  _center(y, str, colorKey) {
-    this._text(Math.floor((this.W - str.length) / 2), y, str, colorKey);
-  }
-
-  _drawStars() {
-    if (!this.night) return;
-    const phase = Math.floor(this.dist / NIGHT_EVERY);
-    // The star field depends only on the night phase and the grid size, so
-    // cache it instead of re-hashing every sky cell on every frame (~2.5k
-    // hash calls per frame at max size). Rebuilt when phase or size changes.
-    const cache = this._stars;
-    if (!cache || cache.phase !== phase || cache.W !== this.W || cache.H !== this.H) {
-      const cells = [];
-      for (let r = 1; r < this.groundRow - 6; r++) {
-        for (let c = 0; c < this.W; c++) {
-          const h = hash2(c + phase * 31, r);
-          if (h % 47 === 0) cells.push([r, c, '·']);
-          else if (h % 199 === 0) cells.push([r, c, '*']);
-        }
-      }
-      this._stars = { phase, W: this.W, H: this.H, cells };
-    }
-    for (const [r, c, ch] of this._stars.cells) {
-      this.grid[r][c] = ch; this.col[r][c] = 'S';
-    }
-  }
-
-  // A subtle, slow-scrolling dune crest on the horizon — one row, well above
-  // the crab so the busy block sprites never fight the background.
-  _drawHills() {
-    // No row guard needed: resize() clamps H to 15..30, so groundRow - 6
-    // is always >= 7 and this row is always on screen.
-    const row = this.groundRow - 6;
-    const blocks = ' ▁▂▃▄▅';
-    const key = this.night ? 'S' : 'E';
-    for (let c = 0; c < this.W; c++) {
-      const n = smoothNoise(c * 0.11 + this.dist * 0.012 + 100); // 0..1
-      this.grid[row][c] = blocks[1 + Math.round(n * 4)];
-      this.col[row][c] = key;
-    }
-  }
-
-  _drawCelestial() {
-    const cx = Math.floor(this.W * 0.7);
-    if (this.night) this._put(cx + 1, 1, ['☾'], 'W');
-    else this._put(cx, 1, [' ▄▄ ', '████', ' ▀▀ '], 'y');
-  }
-
-  _drawClouds() {
-    const span = this.W + 24;
-    for (let i = 0; i < 5; i++) {
-      const shape = CLOUDS[i % CLOUDS.length];
-      const far = i < 3;
-      const speed = far ? 0.18 : 0.42;
-      const x = this.W - (((this.dist * speed) + i * 53) % span) + 8;
-      const yy = far ? 2 + (i % 2) : 1 + (i % 2) * 2;
-      this._put(x, yy, shape, far ? 'D' : 'c');
-    }
-  }
-
-  _drawParticles() {
-    for (const p of this.particles) {
-      const gx = Math.round(p.x), gy = this.groundRow - Math.round(p.y);
-      if (gx < 0 || gx >= this.W || gy < 0 || gy >= this.H) continue;
-      this.grid[gy][gx] = p.char;
-      this.col[gy][gx] = (p.color === 't' && p.life < p.max * 0.4) ? 'D' : p.color;
-    }
-  }
+  // The frame itself is composed in src/render.js: the Engine owns the
+  // simulation only, and the Renderer reads this state without mutating it.
 
   render({ color = true } = {}) {
-    this._blank();
-    const night = this.night;
-
-    this._drawStars();
-    this._drawHills();
-    this._drawClouds();
-    this._drawCelestial();
-
-    // ground line, scrolling pebble pattern
-    const g = this.grid[this.groundRow], gc = this.col[this.groundRow];
-    for (let c = 0; c < this.W; c++) {
-      const h = hash2(c + Math.floor(this.dist), 11);
-      g[c] = h % 13 === 0 ? '╌' : '▔';
-      gc[c] = night ? 'S' : 'D';
-    }
-
-    // obstacles
-    for (const ob of this.obstacles) {
-      if (ob.kind === 'cactus') {
-        this._put(ob.x, this.groundRow - ob.c.h, ob.c.rows, night ? 'g' : ob.c.color);
-      } else {
-        const f = ob.f || FLYERS[0];
-        const frame = f.frames[Math.floor(this.t * 11) % f.frames.length];
-        this._put(ob.x, this.groundRow - 1 - ob.fly, [frame], f.color);
-      }
-    }
-
-    // the runner - Clawd, or the Claude Code cloud skin
-    const C = this.skin;
-    const ducking = this.duckT > 0 && this.y === 0 && this.mode === 'run';
-    let art;
-    if (this.mode === 'dead') art = C.dead;
-    else if (ducking) art = Math.floor(this.t * 8) % 2 ? C.duckA : C.duckB;
-    else if (this.y > 0) art = C.jump;
-    else art = Math.floor(this.dist / 4) % 2 ? C.runA : C.runB;
-    const crabTop = this.groundRow - Math.round(this.y) - art.length;
-    this._put(CRAB_X, crabTop, art, C.color, C.accent);
-
-    this._drawParticles();
-
-    // HUD
-    const hudColor = this.flashT > 0 ? 'Y' : 'D';
-    const hud = `HI ${String(this.hi).padStart(5, '0')}  ${String(this.score).padStart(5, '0')}`;
-    this._text(this.W - hud.length - 1, 0, hud, hudColor);
-    this._text(1, 0, 'CLAWD RUNNER', 'o');
-
-    if (this.popupT > 0 && this.mode === 'run') this._center(2, this.popupMsg, 'Y');
-
-    if (this.mode === 'title') {
-      this._center(Math.floor(this.H / 2) - 3, TITLE, 'B');
-      this._center(Math.floor(this.H / 2) - 1, SUBTITLE, 'D');
-      this._center(Math.floor(this.H / 2) + 1, 'SPACE jump · ↓ duck/dive · P pause · Q quit', 'W');
-      this._center(Math.floor(this.H / 2) + 3, 'press SPACE to scuttle', 'o');
-    } else if (this.mode === 'dead') {
-      this._center(Math.floor(this.H / 2) - 3, 'G A M E   O V E R', 'R');
-      const line = this.newBest ? `score ${this.score} · NEW BEST!` : `score ${this.score} · best ${this.hi}`;
-      this._center(Math.floor(this.H / 2) - 1, line, this.newBest ? 'Y' : 'W');
-      this._center(Math.floor(this.H / 2) + 1, 'SPACE restart · Q quit', 'D');
-    } else if (this.paused) {
-      this._center(Math.floor(this.H / 2), 'P A U S E D', 'W');
-    }
-
-    // help line
-    this._text(1, this.H - 1, 'SPACE jump   ↓/S duck·dive   P pause   R restart   Q quit', 'D');
-
-    // screen shake — shift the whole composed frame by a couple cells on death
-    let ox = 0, oy = 0;
-    if (this.shakeT > 0) {
-      const mag = Math.min(2, this.shakeT * 6);
-      ox = Math.round(Math.sin(this.t * 63) * mag);
-      oy = Math.round(Math.cos(this.t * 47) * mag * 0.5);
-    }
-
-    // flush grid -> string. Screen shake is rare (only while shakeT > 0
-    // right after a death), so the common no-shake frame takes a fast path
-    // that skips the per-cell bounds math: with ox = oy = 0 every source
-    // cell is in bounds by construction, and the general loop below is
-    // only needed while the frame is actually shifted.
-    const out = [];
-    if (ox === 0 && oy === 0) {
-      for (let r = 0; r < this.H; r++) out.push(flushRow(this.grid[r], this.col[r], color));
-      return out.join('\n');
-    }
-    for (let r = 0; r < this.H; r++) {
-      const sr = r - oy;
-      const chars = new Array(this.W), keys = new Array(this.W);
-      for (let c = 0; c < this.W; c++) {
-        const sc = c - ox;
-        const inb = sr >= 0 && sr < this.H && sc >= 0 && sc < this.W;
-        chars[c] = inb ? this.grid[sr][sc] : ' ';
-        keys[c] = inb ? this.col[sr][sc] : '';
-      }
-      out.push(flushRow(chars, keys, color));
-    }
-    return out.join('\n');
+    return this.renderer.render(this, { color });
   }
 }
