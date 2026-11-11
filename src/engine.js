@@ -49,6 +49,25 @@ function smoothNoise(x) {
   return a * (1 - u) + b * u;
 }
 
+// One composed row -> string, with the color state machine (emit a color
+// escape only when the key changes, reset at the end). Both flush paths in
+// render() share it: the fast path passes the grid row straight through,
+// the shake path passes a shifted copy built for that row.
+function flushRow(chars, keys, color) {
+  let line = '', cur = '';
+  for (let c = 0; c < chars.length; c++) {
+    const key = color ? keys[c] : '';
+    if (key !== cur) {
+      line += cur ? RESET : '';
+      line += key ? COLORS[key] : '';
+      cur = key;
+    }
+    line += chars[c];
+  }
+  if (cur) line += RESET;
+  return line;
+}
+
 export class Engine {
   constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0, skin = 'clawd' } = {}) {
     this.seed = seed;
@@ -520,40 +539,19 @@ export class Engine {
     // only needed while the frame is actually shifted.
     const out = [];
     if (ox === 0 && oy === 0) {
-      for (let r = 0; r < this.H; r++) {
-        const grow = this.grid[r], crow = this.col[r];
-        let line = '', cur = '';
-        for (let c = 0; c < this.W; c++) {
-          const key = color ? crow[c] : '';
-          if (key !== cur) {
-            line += cur ? RESET : '';
-            line += key ? COLORS[key] : '';
-            cur = key;
-          }
-          line += grow[c];
-        }
-        if (cur) line += RESET;
-        out.push(line);
-      }
+      for (let r = 0; r < this.H; r++) out.push(flushRow(this.grid[r], this.col[r], color));
       return out.join('\n');
     }
     for (let r = 0; r < this.H; r++) {
       const sr = r - oy;
-      let line = '', cur = '';
+      const chars = new Array(this.W), keys = new Array(this.W);
       for (let c = 0; c < this.W; c++) {
         const sc = c - ox;
         const inb = sr >= 0 && sr < this.H && sc >= 0 && sc < this.W;
-        const ch = inb ? this.grid[sr][sc] : ' ';
-        const key = color && inb ? this.col[sr][sc] : '';
-        if (key !== cur) {
-          line += cur ? RESET : '';
-          line += key ? COLORS[key] : '';
-          cur = key;
-        }
-        line += ch;
+        chars[c] = inb ? this.grid[sr][sc] : ' ';
+        keys[c] = inb ? this.col[sr][sc] : '';
       }
-      if (cur) line += RESET;
-      out.push(line);
+      out.push(flushRow(chars, keys, color));
     }
     return out.join('\n');
   }
