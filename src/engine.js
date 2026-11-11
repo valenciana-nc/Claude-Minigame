@@ -183,6 +183,13 @@ export class Engine {
     }
   }
 
+  // Horizontal distance covered by one full jump arc at the current speed.
+  // Spawn gaps and the flyer keep-apart bound both derive from it, so it
+  // lives here once instead of being recomputed (and re-derived) in two places.
+  _jumpCols() {
+    return (2 * JUMP_VY / GRAVITY) * this.speed;
+  }
+
   _step(dt) {
     this.t += dt;
     this._updateParticles(dt);
@@ -243,7 +250,7 @@ export class Engine {
     for (const ob of this.obstacles) ob.x -= this.speed * (ob.speedMul || 1) * dt;
     // ...but a fast flyer must never overtake into an obstacle ahead of it — keep
     // at least a jump-and-recover gap so you never have to jump and duck at once.
-    const safe = (2 * JUMP_VY / GRAVITY) * this.speed + 8;
+    const safe = this._jumpCols() + 8;
     for (const ob of this.obstacles) {
       if (ob.kind !== 'flyer') continue;
       let bound = -Infinity;
@@ -305,7 +312,7 @@ export class Engine {
     // Schedule the next spawn so the gap is always *reachable*. Tall obstacles
     // need an earlier launch, so they get extra setup room; slack keeps a floor
     // of breathing space even at max difficulty so a sharp player can always win.
-    const jumpCols = (2 * JUMP_VY / GRAVITY) * this.speed;
+    const jumpCols = this._jumpCols();
     const tall = groupH >= 3 ? jumpCols * 0.22 : 0;
     const minGap = Math.max(16, jumpCols * 0.6) + tall;
     const slack = Math.max(10, jumpCols * (1.5 - d));
