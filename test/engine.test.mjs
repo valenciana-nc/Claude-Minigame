@@ -24,6 +24,14 @@ test('non-finite dimensions fall back to defaults instead of crashing render', (
   assert.equal(g.H, 20);
 });
 
+test('a non-finite, negative, or non-numeric hi starts at 0 instead of poisoning the HUD', () => {
+  for (const bad of [NaN, Infinity, -Infinity, -5, 'abc', undefined]) {
+    assert.equal(new Engine({ seed: 1, hi: bad }).hi, 0, `hi=${bad} must start at 0`);
+  }
+  assert.equal(new Engine({ seed: 1, hi: 3.7 }).hi, 3, 'a fractional hi is floored');
+  assert.equal(new Engine({ seed: 1, hi: 42 }).hi, 42, 'a valid hi is kept');
+});
+
 test('tick ignores a non-positive or non-finite dt instead of rewinding the sim', () => {
   const g = new Engine({ width: 78, height: 18, seed: 1 });
   g.input('jump');

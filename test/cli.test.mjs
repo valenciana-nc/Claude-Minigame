@@ -3,6 +3,8 @@
 // Run: npm test
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -15,8 +17,8 @@ function test(name, fn) {
   passed++;
 }
 
-function run(args) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
+function run(args, env = {}) {
+  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', env: { ...process.env, ...env } });
 }
 
 function frameCount(out) {
@@ -44,6 +46,21 @@ test('--skin=claude snapshot renders the cloud skin', () => {
   assert.equal(claude.status, 0);
   assert.ok(claude.stdout.includes('▟'), 'claude skin must render its cloud sprite');
   assert.ok(!clawd.stdout.includes('▟'), 'default skin must stay the crab');
+});
+
+test('a poisoned hi file falls back to 0 instead of printing Infinity or junk in the HUD', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-hi-'));
+  try {
+    for (const bad of ['{"hi": 1e400}', '{"hi": "abc"}', '{"hi": -5}']) {
+      fs.writeFileSync(path.join(home, '.claude-minigame.json'), bad);
+      const r = run(['--snapshot', '1', '--every', '1', '--plain', '--seed', '7'], { HOME: home });
+      assert.equal(r.status, 0);
+      assert.ok(r.stdout.includes('HI 00000'), `poisoned hi ${bad} must fall back to HI 00000`);
+      assert.ok(!r.stdout.includes('Infinity') && !r.stdout.includes('abc'), 'no poisoned value may reach the HUD');
+    }
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 });
 
 test('--snapshot abc falls back to the default 8 frames instead of printing nothing', () => {

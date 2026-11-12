@@ -45,7 +45,14 @@ if (flag('--help') || flag('-h')) {
 
 const HI_FILE = path.join(os.homedir(), '.claude-minigame.json');
 function loadHi() {
-  try { return JSON.parse(fs.readFileSync(HI_FILE, 'utf8')).hi || 0; } catch { return 0; }
+  try {
+    const hi = JSON.parse(fs.readFileSync(HI_FILE, 'utf8')).hi;
+    // A hand-edited or corrupt hi file used to poison the HUD: {"hi": 1e400}
+    // parses to Infinity and prints "HI Infinity" forever (no score can
+    // ever beat it), and {"hi": "abc"} printed "HI 00abc". Only a finite
+    // non-negative number is a high score; anything else starts at 0.
+    return Number.isFinite(hi) && hi > 0 ? Math.floor(hi) : 0;
+  } catch { return 0; }
 }
 function saveHi(hi) {
   try { fs.writeFileSync(HI_FILE, JSON.stringify({ hi })); } catch { /* shrug */ }

@@ -38,7 +38,10 @@ function compactInPlace(arr, keep) {
 export class Engine {
   constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0, skin = 'clawd' } = {}) {
     this.seed = seed;
-    this.hi = hi;
+    // Same poisoned-value guard as loadHi() in bin/clawd.js, for direct
+    // API users: a NaN/Infinity/negative/string hi would stick in the HUD
+    // (and in saveIfBeaten's comparisons) forever.
+    this.hi = Number.isFinite(hi) ? Math.max(0, Math.floor(hi)) : 0;
     this.skin = skin === 'claude' ? CLAUDE : CRAB; // unknown names fall back to the crab
     this.mode = 'title';
     this.t = 0;
