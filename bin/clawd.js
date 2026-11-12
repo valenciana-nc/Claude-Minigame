@@ -76,8 +76,18 @@ if (flag('--snapshot')) {
   game.input('jump'); // leave title screen
   const dt = 1 / 30;
   let printed = 0, ticks = 0;
-  const printEvery = positiveInt(opt('--every', 25), 25);
-  while (printed < frames && ticks < 10000) {
+  // The print loop below is capped at MAX_TICKS so a wild --every can't
+  // hang the run — but that cap used to silently swallow the request:
+  // --every 99999 printed nothing and --snapshot 500 --every 25 printed
+  // only 400 frames, both exiting 0. Clamp both knobs so the requested
+  // frames always fit inside the tick budget.
+  const MAX_TICKS = 10000;
+  const printEvery = Math.min(
+    positiveInt(opt('--every', 25), 25),
+    Math.max(1, Math.floor((MAX_TICKS - 1) / frames)),
+  );
+  const frameBudget = Math.min(frames, MAX_TICKS - 1);
+  while (printed < frameBudget && ticks < MAX_TICKS) {
     // tiny bot: jump cacti & low flyers, duck mid flyers
     const next = nearestObstacle(game.obstacles, 8);
     if (next && game.mode === 'run' && game.y === 0) {
@@ -90,8 +100,13 @@ if (flag('--snapshot')) {
     game.tick(dt);
     if (++ticks % printEvery === 0) {
       printed++;
-      console.log(`--- frame ${ticks} score=${game.score} mode=${game.mode} y=${game.y.toFixed(1)} obstacles=${game.obstacles.length}`);
-      console.log(game.render({ color: !flag('--plain') }));
+      // Synchronous writes: console.log() to a pipe is async, so the
+      // process.exit(0) below used to truncate a big run's tail (a piped
+      // --snapshot 20000 printed a random 1253–7197 of 9999 frames, and an
+      // async drain-wait can't work here — execution would fall through
+      // into interactive mode before the callback fires). writeSync
+      // completes before returning, so the exit can't cut output short.
+      fs.writeSync(1, `--- frame ${ticks} score=${game.score} mode=${game.mode} y=${game.y.toFixed(1)} obstacles=${game.obstacles.length}\n${game.render({ color: !flag('--plain') })}\n`);
     }
   }
   process.exit(0);

@@ -18,7 +18,9 @@ function test(name, fn) {
 }
 
 function run(args, env = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', env: { ...process.env, ...env } });
+  // A 9999-frame snapshot run prints ~15 MB; spawnSync's 1 MB default
+  // maxBuffer would kill it, so allow plenty of headroom.
+  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ...env } });
 }
 
 function frameCount(out) {
@@ -61,6 +63,27 @@ test('a poisoned hi file falls back to 0 instead of printing Infinity or junk in
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+test('--every larger than the tick budget still prints every requested frame', () => {
+  const r = run(['--snapshot', '2', '--every', '99999', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0);
+  assert.equal(frameCount(r.stdout), 2, 'a wild --every must not swallow the frames');
+});
+
+test('--snapshot 500 --every 25 prints all 500 frames, not just the 400 that fit the old budget', () => {
+  const r = run(['--snapshot', '500', '--every', '25', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0);
+  assert.equal(frameCount(r.stdout), 500);
+});
+
+test('a huge piped snapshot run prints every frame instead of losing its tail', () => {
+  // process.exit() used to truncate buffered stdout when piped: this
+  // printed a random 1253–5482 of 9999 frames. 20000 asks for more than
+  // the 9999-frame cap, so all 9999 must arrive.
+  const r = run(['--snapshot', '20000', '--every', '25', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0);
+  assert.equal(frameCount(r.stdout), 9999, 'piped output must not be truncated by process.exit()');
 });
 
 test('--snapshot abc falls back to the default 8 frames instead of printing nothing', () => {
