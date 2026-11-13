@@ -106,7 +106,7 @@ export const CACTI = [
   { w: 3, h: 2, color: 'G', tier: 1, rows: ['█ █', '███'] },                // forked
   { w: 3, h: 3, color: 'G', tier: 2, rows: ['█ █', '███', ' █ '] },         // saguaro
   { w: 5, h: 2, color: 'G', tier: 2, rows: ['█ █ █', '█████'] },            // comb
-  { w: 4, h: 3, color: 'G', tier: 3, rows: ['█ █', '███', '█ █'] },         // gnarly
+  { w: 3, h: 3, color: 'G', tier: 3, rows: ['█ █', '███', '█ █'] },         // gnarly
   { w: 5, h: 3, color: 'G', tier: 3, rows: ['█ █ █', '█████', ' █ █ '] },   // cluster
 ];
 
