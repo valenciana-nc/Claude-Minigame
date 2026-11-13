@@ -143,6 +143,17 @@ test('cancel() drops a buffered ESC', () => {
   assert.deepEqual(t.actions, [], 'cancelled ESC must never quit');
 });
 
+test('a double ESC quits exactly once', () => {
+  // Two quick ESC presses re-buffer instead of quitting twice: the
+  // second ESC replaces the pending one, and the timer fires once.
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('\x1b');
+  assert.deepEqual(t.actions, [], 'the second ESC must re-buffer, not quit yet');
+  t.fireTimers();
+  assert.deepEqual(t.actions, ['quit'], 'the buffered ESC must quit exactly once');
+});
+
 test('unknown keys are ignored', () => {
   const t = harness();
   t.h.data('x');

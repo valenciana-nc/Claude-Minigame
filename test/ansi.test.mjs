@@ -1,6 +1,6 @@
 // Headless ANSI toolkit tests. Run: npm test
 import assert from 'node:assert/strict';
-import { dedupeFrame } from '../src/ansi.js';
+import { dedupeFrame, setTitle } from '../src/ansi.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -22,6 +22,15 @@ test('dedupeFrame returns home + frame when the frame changed', () => {
   const home = '\x1b[H';
   assert.equal(dedupeFrame('old', 'new'), home + 'new');
   assert.equal(dedupeFrame('', 'first'), home + 'first', 'the first frame must always be emitted');
+});
+
+test('setTitle wraps the title and strips control characters', () => {
+  // A control character in the title could inject terminal sequences;
+  // setTitle strips them. The expected value is literal, not built from
+  // the module's own constants — same rule as the dedupeFrame test.
+  assert.equal(setTitle('Claude Runner'), '\x1b]0;Claude Runner\x07');
+  assert.equal(setTitle('a\x1bb\x7fc'), '\x1b]0;abc\x07', 'ESC and DEL must be stripped');
+  assert.equal(setTitle('a\nb'), '\x1b]0;ab\x07', 'newlines must be stripped');
 });
 
 console.log(`\n${passed} tests passed 🎨`);

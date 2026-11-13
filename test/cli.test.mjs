@@ -123,4 +123,79 @@ test('interactive mode without a TTY exits 1 with a clear message', () => {
   assert.ok(r.stderr.includes('needs a real terminal'), 'should explain why it refused');
 });
 
+test('a saved hi displays in the HUD instead of starting at 0', () => {
+  // The poisoned-hi test pins the fallback; nothing pinned the happy
+  // path — a real saved best actually reaching the HUD.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-hi-'));
+  try {
+    fs.writeFileSync(path.join(home, '.claude-minigame.json'), '{"hi": 123}');
+    const r = run(['--snapshot', '1', '--every', '1', '--plain', '--seed', '7'], { HOME: home });
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('HI 00123'), 'a saved hi of 123 must show as HI 00123');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('malformed hi JSON and a missing hi file both fall back to 0', () => {
+  // loadHi() catches JSON.parse failures and read failures; the bad-value
+  // cases were covered, but a truncated file or a first run (no file at
+  // all) took the same catch path with no test on it.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-hi-'));
+  try {
+    fs.writeFileSync(path.join(home, '.claude-minigame.json'), '{"hi": ');
+    const bad = run(['--snapshot', '1', '--every', '1', '--plain', '--seed', '7'], { HOME: home });
+    assert.equal(bad.status, 0);
+    assert.ok(bad.stdout.includes('HI 00000'), 'malformed hi JSON must fall back to HI 00000');
+    fs.rmSync(path.join(home, '.claude-minigame.json'));
+    const missing = run(['--snapshot', '1', '--every', '1', '--plain', '--seed', '7'], { HOME: home });
+    assert.equal(missing.status, 0);
+    assert.ok(missing.stdout.includes('HI 00000'), 'a missing hi file must fall back to HI 00000');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('legacy `run` form still reaches snapshot mode', () => {
+  const r = run(['run', '--snapshot', '2', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0, 'the legacy `clawd run` spelling must not fall through to interactive mode');
+  assert.equal(frameCount(r.stdout), 2);
+});
+
+test('a garbage --seed still prints frames instead of crashing', () => {
+  // Number('abc') is NaN, which mulberry32 coerces via `>>> 0`; the run
+  // must stay playable (deterministic seed 0) rather than die.
+  const r = run(['--snapshot', '2', '--plain', '--seed', 'abc']);
+  assert.equal(r.status, 0);
+  assert.equal(frameCount(r.stdout), 2);
+});
+
+test('snapshot without --plain carries ANSI escapes', () => {
+  // Color-by-default was only asserted at the Engine level; nothing
+  // checked the CLI actually emits color when --plain is absent.
+  const r = run(['--snapshot', '1', '--seed', '7']);
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('\x1b['), 'default snapshot output must carry ANSI codes');
+});
+
+test('a clawd:// protocol arg is ignored', () => {
+  // The protocol launcher can pass `clawd://play` as an argument; the
+  // filter must drop it instead of letting it confuse flag parsing.
+  const r = run(['clawd://play', '--snapshot', '2', '--plain', '--seed', '7']);
+  assert.equal(r.status, 0);
+  assert.equal(frameCount(r.stdout), 2);
+});
+
+test('-h exits 0 and names the game', () => {
+  const r = run(['-h']);
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('Clawd Runner'), 'short help should name the game');
+});
+
+test('an unknown --skin stays the crab', () => {
+  const r = run(['--snapshot', '1', '--plain', '--seed', '7', '--skin=banana']);
+  assert.equal(r.status, 0);
+  assert.ok(!r.stdout.includes('▟'), 'an unknown skin must fall back to the crab, not crash');
+});
+
 console.log(`\n${passed} tests passed 🖥️`);
