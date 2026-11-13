@@ -417,4 +417,58 @@ test('render fast path and shake path agree when the shake offset is zero', () =
   assert.notEqual(shaken.join('\n'), plain, 'a real shake must visibly shift the frame');
 });
 
+test('resize clamps dimensions to the supported range', () => {
+  // Only non-finite dimensions were locked; an over- or under-sized
+  // terminal (or a bad caller) could still ask for a 200-wide or
+  // 5-row grid, and nothing pinned the clamp.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.resize(200, 50);
+  assert.equal(g.W, 120, 'width must cap at 120');
+  assert.equal(g.H, 30, 'height must cap at 30');
+  g.resize(10, 5);
+  assert.equal(g.W, 60, 'width must floor at 60');
+  assert.equal(g.H, 15, 'height must floor at 15');
+  g.resize(80, 20);
+  assert.equal(g.W, 80);
+  assert.equal(g.H, 20, 'an in-range resize must pass through');
+});
+
+test('score, night, and difficulty follow distance', () => {
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  assert.equal(g.score, 0);
+  assert.equal(g.night, false, 'day at the start');
+  assert.equal(g.difficulty, 0, 'easiest at the start');
+  g.dist = 4.9;
+  assert.equal(g.score, 0, 'score floors at dist/5');
+  g.dist = 5;
+  assert.equal(g.score, 1);
+  g.dist = 2400; // one full day/night phase
+  assert.equal(g.night, true, 'night in the second phase');
+  assert.ok(g.difficulty > 0.9 && g.difficulty < 1, 'difficulty nearly maxed by 2400');
+  g.dist = 4800; // third phase — day again
+  assert.equal(g.night, false, 'day returns in the third phase');
+  g.dist = 2600;
+  assert.equal(g.difficulty, 1, 'difficulty caps at 1');
+});
+
+test("input('quit') returns 'quit' for the caller to act on", () => {
+  // The key handler maps keys to actions and bin/clawd.js relies on the
+  // engine answering 'quit'; nothing tested the return value itself.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  assert.equal(g.input('quit'), 'quit');
+  assert.equal(g.mode, 'title', 'quitting must not change the game state');
+});
+
+test("input('restart') from the title screen starts a run immediately", () => {
+  // Restart used to be exercised only from run/dead states; from the
+  // title it must also drop straight into a run, not sit on the title.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  assert.equal(g.mode, 'title');
+  g.input('restart');
+  assert.equal(g.mode, 'run');
+  const dist = g.dist;
+  g.tick(1 / 30);
+  assert.ok(g.dist > dist, 'the restarted run must advance immediately');
+});
+
 console.log(`\n${passed} tests passed 🦀`);
