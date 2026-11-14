@@ -92,6 +92,8 @@ npm run snapshot         # render bot-played frames as text (debugging/CI)
 
 The game logic (`src/engine.js`) has no terminal code in it — it's pure simulation, so it's easy to test. `bin/clawd.js` handles the screen and keyboard.
 
+Rendering: identical frames are skipped (`dedupeFrame` in `src/ansi.js`), and each emitted frame is wrapped in DEC 2026 synchronized-output markers so a supporting terminal (iTerm2, Kitty, WezTerm, Ghostty, Alacritty ≥ 0.13, modern xterm, Windows Terminal) paints it atomically instead of tearing mid-write at 40 fps. Terminals that don't support the mode ignore the markers.
+
 ## Credits
 
 Clawd is [the unofficial mascot of Claude Code](https://github.com/anthropics/claude-code/issues/8536) by Anthropic. This is a fan project, not affiliated with or endorsed by Anthropic. Inspired by Chrome's `chrome://dino`.
