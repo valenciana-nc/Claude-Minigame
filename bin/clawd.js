@@ -8,7 +8,7 @@ import path from 'node:path';
 import { Engine } from '../src/engine.js';
 import { nearestObstacle } from '../src/util.js';
 import { createKeyHandler } from '../src/input.js';
-import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame } from '../src/ansi.js';
+import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame, syncFrame } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
 
@@ -198,6 +198,9 @@ timer = setInterval(() => {
   game.tick(dt);
   if (game.mode === 'dead') saveIfBeaten();
   const frame = game.render();
-  process.stdout.write(dedupeFrame(lastFrame, frame));
+  // Synchronized output (DEC 2026, src/ansi.js): a supporting terminal
+  // paints the whole frame atomically instead of mid-write, so the 40 fps
+  // redraw can't tear. Deduped frames emit nothing, markers included.
+  process.stdout.write(syncFrame(dedupeFrame(lastFrame, frame)));
   lastFrame = frame;
 }, 25); // ~40 fps for smoother scrolling

@@ -43,4 +43,22 @@ export const clear = `${ESC}[2J`;
 export function dedupeFrame(prev, frame) {
   return prev === frame ? '' : home + frame;
 }
+
+// Synchronized output (DEC 2026): `ESC[?2026h` asks a supporting terminal
+// to hold everything until `ESC[?2026l`, then paint the block atomically —
+// no tearing if the terminal repaints mid-frame at 40 fps. Terminals that
+// don't know the mode ignore the set/reset (private modes are a no-op by
+// convention), and multiplexers that drop the markers just fall back to
+// painting as the bytes arrive — the old behavior, never breakage.
+// Supported by iTerm2, Kitty, WezTerm, Ghostty, Alacritty ≥ 0.13, modern
+// xterm, and Windows Terminal; VTE/gnome-terminal not yet. Both markers ride
+// in the same write as the frame, so they always pair in the stream — a kill
+// between ticks can't strand the terminal in sync mode.
+export const syncStart = `${ESC}[?2026h`;
+export const syncEnd = `${ESC}[?2026l`;
+// Wrap one emitted frame. Empty output stays empty, so a deduped frame
+// emits no bare markers at all.
+export function syncFrame(out) {
+  return out ? syncStart + out + syncEnd : '';
+}
 export const setTitle = (title) => `${ESC}]0;${String(title).replace(/[\x00-\x1f\x7f]/g, '')}\x07`;
