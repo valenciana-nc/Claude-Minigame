@@ -179,6 +179,52 @@ test('a buffered ESC followed by O does not quit — it may open an SS3 sequence
   assert.deepEqual(t.actions, [], 'ESC + O must not become a quit');
 });
 
+test('several keys coalesced into one chunk all land', () => {
+  // Under load a terminal can deliver two quick presses in a single `data`
+  // chunk; the old code handled the whole chunk as one key, so '  ' (two
+  // spaces, e.g. key-repeat while holding jump) produced no action at all.
+  const t = harness();
+  t.h.data('  ');
+  assert.deepEqual(t.actions, ['jump', 'jump'], 'two spaces in one chunk must jump twice');
+  t.h.data('pq');
+  assert.deepEqual(t.actions, ['jump', 'jump', 'pause', 'quit'], 'P then Q in one chunk must pause, then quit');
+});
+
+test('an arrow key plus the next press in one chunk both land', () => {
+  const t = harness();
+  t.h.data('\x1b[A ');
+  assert.deepEqual(t.actions, ['jump', 'jump'], '↑ + SPACE in one chunk must jump twice');
+  t.h.data(' \x1b[B');
+  assert.deepEqual(t.actions, ['jump', 'jump', 'jump', 'duck'], 'SPACE + ↓ in one chunk must jump, then duck');
+});
+
+test('a trailing ESC in a coalesced chunk still quits', () => {
+  // SPACE then ESC in one chunk: the space jumps, the ESC buffers and
+  // quits once its window elapses — the old code dropped the whole chunk,
+  // losing the jump and cancelling the quit.
+  const t = harness();
+  t.h.data(' \x1b');
+  assert.deepEqual(t.actions, ['jump'], 'the SPACE must jump before the ESC is even resolved');
+  t.fireTimers();
+  assert.deepEqual(t.actions, ['jump', 'quit'], 'the trailing ESC must still quit');
+});
+
+test('a split sequence plus a trailing key in the next chunk both land', () => {
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('[A ');
+  assert.deepEqual(t.actions, ['jump', 'jump'], 'the completed ↑ and the trailing SPACE must both jump');
+});
+
+test('an SS3 sequence is completed, not split apart (still unmapped)', () => {
+  // ESC O A arrives whole: it must be read as one sequence, not as a
+  // buffered ESC plus stray bytes — mapping it to jump is the next step.
+  const t = harness();
+  t.h.data('\x1bOA');
+  t.fireTimers();
+  assert.deepEqual(t.actions, [], 'SS3 ↑ is not yet a game key, but must not quit either');
+});
+
 test('unknown keys are ignored', () => {
   const t = harness();
   t.h.data('x');

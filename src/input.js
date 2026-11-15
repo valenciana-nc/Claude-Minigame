@@ -8,12 +8,21 @@
 // This buffers a lone ESC for `windowMs` and only treats it as a quit when
 // nothing follows. A second chunk recombines into the full sequence.
 // Pure logic — no terminal I/O — so it can be unit tested.
+//
+// Chunks are tokenized one character at a time: under load a terminal can
+// coalesce several keypresses into a single `data` chunk (two quick spaces,
+// an arrow key plus the next press, a trailing ESC), and the old code handled
+// the whole chunk as one key, so every press in it was silently dropped.
 
 export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTimeout, clearTimeoutFn = clearTimeout } = {}) {
   let pending = null; // timeout id while a lone ESC / partial sequence is buffered
-  let buf = '';       // buffered ESC or partial CSI sequence (e.g. '\x1b[')
-  // A CSI sequence still waiting for its final byte: ESC [ + params only.
-  const CSI_PREFIX = /^\x1b\[[0-9;?]*$/;
+  let buf = '';       // buffered ESC or partial sequence (e.g. '\x1b[')
+  // Byte classes of a CSI / SS3 sequence (ECMA-48): parameter bytes 0x30–0x3f
+  // (digits, ';', '?', '<', '=', '>', '!'), intermediates 0x20–0x2f, and
+  // final bytes 0x40–0x7e. Anything else can't continue a sequence.
+  const isParam = (ch) => ch >= '0' && ch <= '?';        // 0x30–0x3f
+  const isIntermediate = (ch) => ch >= ' ' && ch <= '/'; // 0x20–0x2f
+  const isFinal = (ch) => ch >= '@' && ch <= '~';        // 0x40–0x7e
 
   function arm() {
     pending = setTimeoutFn(() => {
@@ -39,49 +48,52 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
     buf = '';
   }
 
+  // Feed one character of a chunk into the sequence state machine. A chunk
+  // is processed left to right; a character that can't continue the buffered
+  // partial sequence ends it — a complete sequence is handled, a broken one
+  // is dropped — and the character itself is then fed again as fresh input,
+  // so no keypress is ever lost to the sequence it followed.
+  function feed(ch) {
+    if (buf === '') {
+      if (ch === '\x1b') buf = '\x1b';
+      else handle(ch);
+      return;
+    }
+    if (buf === '\x1b') {
+      if (ch === '\x1b') return; // double ESC: re-buffer, quit exactly once via the timer
+      if (ch === '[' || ch === 'O') { buf += ch; return; }
+      // A lone ESC followed by a key that can't start a sequence was a quit
+      // press, not the head of one: fire it, then handle the key itself.
+      buf = '';
+      handle('\x1b');
+      feed(ch);
+      return;
+    }
+    if (buf === '\x1bO') {
+      // SS3: one final byte completes it (e.g. ESC O A = ↑ in application
+      // cursor-key mode). Anything else breaks the sequence.
+      if (isFinal(ch)) { const seq = buf + ch; buf = ''; handle(seq); }
+      else { buf = ''; feed(ch); }
+      return;
+    }
+    // CSI: parameter / intermediate bytes extend it, a final byte ends it.
+    if (isParam(ch) || isIntermediate(ch)) { buf += ch; return; }
+    if (isFinal(ch)) { const seq = buf + ch; buf = ''; handle(seq); return; }
+    buf = '';
+    feed(ch);
+  }
+
   // Feed one raw-mode `data` chunk. Chunks are usually single keys or a whole
   // escape sequence, but may also be a fragment of one — including fragments
   // split into three or more pieces (ESC, '[', 'A'), which the old code
   // dropped: the '[' fragment was handled as a dead sequence and the 'A'
-  // then arrived alone and was ignored.
+  // then arrived alone and was ignored — or several keys coalesced into one
+  // chunk. The state machine above sorts all of that out one character at a
+  // time; `buf` carries a partial sequence across chunks.
   function data(key) {
-    if (pending !== null) {
-      clearTimeoutFn(pending); pending = null;
-      if (key === '\x1b') { buf = '\x1b'; arm(); return; } // double ESC: re-buffer
-      // A fresh chunk that is itself only a CSI prefix (e.g. '\x1b[' split
-      // off from its final byte) must be buffered like the first ESC was —
-      // handling it now drops it as unknown, and the final byte then
-      // arrives alone and is ignored too, so the arrow press is lost.
-      if (key.startsWith('\x1b') && CSI_PREFIX.test(key)) { buf = key; arm(); return; }
-      if (key.startsWith('\x1b')) { buf = ''; handle(key); return; } // fresh sequence wins
-      const wasLoneEsc = buf === '\x1b';
-      buf += key;
-      if (CSI_PREFIX.test(buf)) { arm(); return; } // still incomplete — wait for the final byte
-      // A buffered lone ESC followed by a key that can't continue a sequence
-      // was a quit press, not the head of one: fire it, then handle the key.
-      // The old code concatenated the two into one unknown "key" and dropped
-      // both, so ESC-then-anything inside the window silently cancelled the
-      // quit with no feedback. '[' and 'O' are left alone — they may still
-      // open a CSI / SS3 sequence, which must not become a quit.
-      if (wasLoneEsc && !key.startsWith('[') && !key.startsWith('O')) {
-        buf = '';
-        handle('\x1b');
-        handle(key);
-        return;
-      }
-      handle(buf); buf = '';
-      return;
-    }
-    if (key === '\x1b') {
-      buf = '\x1b';
-      arm();
-      return;
-    }
-    // A chunk that is only the head of a CSI sequence — the terminal split
-    // it before the final byte — is a partial sequence, not an unknown key.
-    // Buffer it and wait; dropping it here loses the whole arrow press.
-    if (CSI_PREFIX.test(key)) { buf = key; arm(); return; }
-    handle(key);
+    if (pending !== null) { clearTimeoutFn(pending); pending = null; }
+    for (const ch of key) feed(ch);
+    if (buf !== '') arm();
   }
 
   return { data, cancel };
