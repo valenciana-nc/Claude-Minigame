@@ -216,13 +216,33 @@ test('a split sequence plus a trailing key in the next chunk both land', () => {
   assert.deepEqual(t.actions, ['jump', 'jump'], 'the completed ↑ and the trailing SPACE must both jump');
 });
 
-test('an SS3 sequence is completed, not split apart (still unmapped)', () => {
-  // ESC O A arrives whole: it must be read as one sequence, not as a
-  // buffered ESC plus stray bytes — mapping it to jump is the next step.
+test('SS3 arrow keys jump and duck', () => {
+  // Terminals in application cursor-key mode (and some multiplexers) send
+  // arrows as ESC O A / ESC O B instead of the CSI form; the old code
+  // dropped them outright, so ↑/↓ did nothing there.
   const t = harness();
   t.h.data('\x1bOA');
+  t.h.data('\x1bOB');
+  assert.deepEqual(t.actions, ['jump', 'duck'], 'SS3 ↑/↓ must act like CSI ↑/↓');
+  assert.equal(t.pendingTimers(), 0, 'a whole SS3 sequence needs no buffering');
+});
+
+test('an SS3 arrow split across chunks still acts', () => {
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('OA');
+  assert.deepEqual(t.actions, ['jump'], 'ESC + OA must jump, not quit');
+  t.h.data('\x1bO');
+  t.h.data('B');
+  assert.deepEqual(t.actions, ['jump', 'duck'], 'ESC O + B must duck');
   t.fireTimers();
-  assert.deepEqual(t.actions, [], 'SS3 ↑ is not yet a game key, but must not quit either');
+  assert.deepEqual(t.actions, ['jump', 'duck'], 'no buffered ESC may fire after an SS3 key');
+});
+
+test('an SS3 arrow plus the next press in one chunk both land', () => {
+  const t = harness();
+  t.h.data('\x1bOA ');
+  assert.deepEqual(t.actions, ['jump', 'jump'], 'SS3 ↑ + SPACE in one chunk must jump twice');
 });
 
 test('unknown keys are ignored', () => {

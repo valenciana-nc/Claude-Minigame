@@ -36,8 +36,8 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
 
   function handle(key) {
     if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') return void onAction('quit');
-    if (key === ' ' || key === '\x1b[A' || key === 'w' || key === 'W') return void onAction('jump');
-    if (key === '\x1b[B' || key === 's' || key === 'S') return void onAction('duck');
+    if (key === ' ' || key === '\x1b[A' || key === '\x1bOA' || key === 'w' || key === 'W') return void onAction('jump');
+    if (key === '\x1b[B' || key === '\x1bOB' || key === 's' || key === 'S') return void onAction('duck');
     if (key === 'p' || key === 'P') return void onAction('pause');
     if (key === 'r' || key === 'R') return void onAction('restart');
     // unknown keys are ignored
