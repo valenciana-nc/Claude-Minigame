@@ -54,8 +54,21 @@ export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTi
       // arrives alone and is ignored too, so the arrow press is lost.
       if (key.startsWith('\x1b') && CSI_PREFIX.test(key)) { buf = key; arm(); return; }
       if (key.startsWith('\x1b')) { buf = ''; handle(key); return; } // fresh sequence wins
+      const wasLoneEsc = buf === '\x1b';
       buf += key;
       if (CSI_PREFIX.test(buf)) { arm(); return; } // still incomplete — wait for the final byte
+      // A buffered lone ESC followed by a key that can't continue a sequence
+      // was a quit press, not the head of one: fire it, then handle the key.
+      // The old code concatenated the two into one unknown "key" and dropped
+      // both, so ESC-then-anything inside the window silently cancelled the
+      // quit with no feedback. '[' and 'O' are left alone — they may still
+      // open a CSI / SS3 sequence, which must not become a quit.
+      if (wasLoneEsc && !key.startsWith('[') && !key.startsWith('O')) {
+        buf = '';
+        handle('\x1b');
+        handle(key);
+        return;
+      }
       handle(buf); buf = '';
       return;
     }

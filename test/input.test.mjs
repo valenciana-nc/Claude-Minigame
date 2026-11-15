@@ -154,6 +154,31 @@ test('a double ESC quits exactly once', () => {
   assert.deepEqual(t.actions, ['quit'], 'the buffered ESC must quit exactly once');
 });
 
+test('a buffered ESC followed by a plain key still quits instead of swallowing both', () => {
+  // ESC, then SPACE inside the window: the ESC was a quit press, not the
+  // head of a sequence — the old code glued them into one unknown "key"
+  // ('\x1b ') and dropped both, so the quit silently never happened.
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data(' ');
+  assert.deepEqual(t.actions, ['quit', 'jump'], 'the buffered ESC must quit, then the key still lands');
+});
+
+test('a buffered ESC followed by Q quits (once via the ESC, once via Q)', () => {
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('q');
+  assert.equal(t.actions[0], 'quit', 'the buffered ESC must fire the quit');
+});
+
+test('a buffered ESC followed by O does not quit — it may open an SS3 sequence', () => {
+  const t = harness();
+  t.h.data('\x1b');
+  t.h.data('O');
+  t.fireTimers();
+  assert.deepEqual(t.actions, [], 'ESC + O must not become a quit');
+});
+
 test('unknown keys are ignored', () => {
   const t = harness();
   t.h.data('x');
