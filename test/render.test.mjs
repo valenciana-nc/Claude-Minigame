@@ -115,6 +115,22 @@ test('the hill cache is shared safely across renderers', () => {
   assert.notEqual(a.render({ color: false }), firstA, 'the hills must still scroll with dist');
 });
 
+test('the ground pebble row scrolls instead of re-hashing', () => {
+  // Title mode keeps the ground row free of the crab, dust and obstacles,
+  // so it is the pure pebble pattern: advancing dist by k must shift it
+  // left by exactly k cells, with only k fresh cells on the right — and
+  // jumping back must rebuild it to the same pattern.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.dist = 100;
+  const row1 = g.render({ color: false }).split('\n')[g.groundRow];
+  g.dist = 103;
+  const row2 = g.render({ color: false }).split('\n')[g.groundRow];
+  assert.equal(row2.slice(0, -3), row1.slice(3), 'advancing dist by 3 must shift the pebbles left by 3');
+  g.dist = 100;
+  const row3 = g.render({ color: false }).split('\n')[g.groundRow];
+  assert.equal(row3, row1, 'jumping back must rebuild the same pebble row');
+});
+
 test('night stars survive a night-phase change (star cache rebuilds)', () => {
   // The star field is cached per night phase; when dist crosses into the
   // next night the cache must rebuild, not serve the old phase's field

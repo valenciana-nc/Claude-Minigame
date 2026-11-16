@@ -67,6 +67,7 @@ export class Renderer {
     this.grid = null; // [H][W] chars
     this.col = null;  // [H][W] color keys
     this._stars = null;
+    this._ground = null; // cached pebble row: { W, dist, chars }
     this.g = null; // engine being rendered; set for the duration of render()
   }
 
@@ -192,11 +193,27 @@ export class Renderer {
     this._drawClouds();
     this._drawCelestial();
 
-    // ground line, scrolling pebble pattern
+    // ground line, scrolling pebble pattern. The pattern is a pure
+    // function of floor(dist): advancing dist by k just shifts the row
+    // left by k, so cache the chars and only hash the k cells that scroll
+    // in on the right instead of re-hashing all W cells every frame.
+    // Rebuilt on resize, on a backwards jump (restart, or a caller setting
+    // dist directly), and on the first render.
+    const dFloor = Math.floor(g.dist);
+    let gc = this._ground;
+    if (!gc || gc.W !== g.W || dFloor < gc.dist) {
+      const chars = new Array(g.W);
+      for (let c = 0; c < g.W; c++) chars[c] = hash2(c + dFloor, 11) % 13 === 0 ? '╌' : '▔';
+      gc = this._ground = { W: g.W, dist: dFloor, chars };
+    } else if (dFloor > gc.dist) {
+      const k = Math.min(dFloor - gc.dist, g.W);
+      gc.chars.copyWithin(0, k);
+      for (let c = g.W - k; c < g.W; c++) gc.chars[c] = hash2(c + dFloor, 11) % 13 === 0 ? '╌' : '▔';
+      gc.dist = dFloor;
+    }
     const ground = this.grid[g.groundRow], groundCol = this.col[g.groundRow];
     for (let c = 0; c < g.W; c++) {
-      const h = hash2(c + Math.floor(g.dist), 11);
-      ground[c] = h % 13 === 0 ? '╌' : '▔';
+      ground[c] = gc.chars[c];
       groundCol[c] = night ? 'S' : 'D';
     }
 
