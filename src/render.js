@@ -15,10 +15,28 @@ function hash2(x, y) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
+// Lattice values for smoothNoise, memoized: the hill row re-hashes the
+// same lattice points every frame — adjacent columns share them, and the
+// row only slides ~0.012 * dist per frame — so the per-frame hill cost
+// was 2 * W hash2 calls for values that almost never change. Keyed by the
+// integer lattice index only (the value is a pure function of it), so the
+// cache is safe to share across renderers. Capped and cleared rather than
+// grown forever on very long runs; cleared values just recompute.
+const _lattice = new Map();
+function lattice(i) {
+  let v = _lattice.get(i);
+  if (v === undefined) {
+    v = (hash2(i, 7) % 1000) / 1000;
+    if (_lattice.size >= 8192) _lattice.clear();
+    _lattice.set(i, v);
+  }
+  return v;
+}
+
 // Smooth value noise in [0,1] — rolling hills / dunes.
 function smoothNoise(x) {
   const xi = Math.floor(x), f = x - xi;
-  const a = (hash2(xi, 7) % 1000) / 1000, b = (hash2(xi + 1, 7) % 1000) / 1000;
+  const a = lattice(xi), b = lattice(xi + 1);
   const u = f * f * (3 - 2 * f);
   return a * (1 - u) + b * u;
 }

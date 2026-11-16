@@ -96,6 +96,25 @@ test('rendering holds exact line widths at the smallest and largest sizes', () =
   }
 });
 
+test('the hill cache is shared safely across renderers', () => {
+  // The smoothNoise lattice cache is module-level, so two renderers of
+  // different sizes and distances interleave through it; a cache keyed on
+  // anything but the lattice index would corrupt one engine's hills with
+  // the other's. Each engine's frame must stay stable across the other's
+  // renders, and the hills must still move when dist moves (the cache must
+  // not freeze them).
+  const a = new Engine({ width: 120, height: 30, seed: 7 });
+  const b = new Engine({ width: 60, height: 15, seed: 3 });
+  a.input('jump'); b.input('jump');
+  a.dist = 100; b.dist = 5000;
+  const firstA = a.render({ color: false });
+  b.render({ color: false });
+  b.render({ color: false });
+  assert.equal(a.render({ color: false }), firstA, 're-rendering A after B must be identical');
+  a.dist = 200;
+  assert.notEqual(a.render({ color: false }), firstA, 'the hills must still scroll with dist');
+});
+
 test('night stars survive a night-phase change (star cache rebuilds)', () => {
   // The star field is cached per night phase; when dist crosses into the
   // next night the cache must rebuild, not serve the old phase's field
