@@ -54,8 +54,10 @@ export function dedupeFrame(prev, frame) {
 // xterm, and Windows Terminal; VTE/gnome-terminal not yet. Both markers ride
 // in the same write as the frame, so they always pair in the stream — a kill
 // between ticks can't strand the terminal in sync mode.
-export const syncStart = `${ESC}[?2026h`;
-export const syncEnd = `${ESC}[?2026l`;
+// Internal only: the only consumer is syncFrame() below — no importer
+// uses the markers directly, so they are not exported.
+const syncStart = `${ESC}[?2026h`;
+const syncEnd = `${ESC}[?2026l`;
 // Wrap one emitted frame. Empty output stays empty, so a deduped frame
 // emits no bare markers at all.
 export function syncFrame(out) {
