@@ -1,7 +1,7 @@
 // Minimal ANSI toolkit. No deps, truecolor (Windows Terminal, iTerm2, etc).
 
 // Internal only: no importer uses ESC directly (bin imports the built
-// sequences, engine imports COLORS/RESET), so it is not exported.
+// sequences, render imports COLORS/RESET), so it is not exported.
 const ESC = '\x1b';
 export const RESET = `${ESC}[0m`;
 
