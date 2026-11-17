@@ -172,7 +172,9 @@ export class Engine {
     if (this.popupT > 0) this.popupT -= dt;
 
     if (this.mode === 'dead') { this.deadT += dt; return; }
-    if (this.mode !== 'run' || this.paused) return;
+    // No paused check needed here: tick() already returns early while
+    // paused, and it is the only caller, so paused is always false here.
+    if (this.mode !== 'run') return;
 
     // smooth speed ramp: 17 → ~48 cols/s, no kink
     this.speed = 17 + 31 * (this.dist / (this.dist + 1400));
