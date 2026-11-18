@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../src/engine.js';
-import { nearestObstacle } from '../src/util.js';
+import { botAction } from '../src/bot.js';
 import { createKeyHandler } from '../src/input.js';
 import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame, syncFrame } from '../src/ansi.js';
 
@@ -88,15 +88,9 @@ if (flag('--snapshot')) {
   );
   const frameBudget = Math.min(frames, MAX_TICKS - 1);
   while (printed < frameBudget && ticks < MAX_TICKS) {
-    // tiny bot: jump cacti & low flyers, duck mid flyers
-    const next = nearestObstacle(game.obstacles, 8);
-    if (next && game.mode === 'run' && game.y === 0) {
-      const eta = (next.x - 9) / (game.speed * (next.speedMul || 1));
-      const flying = next.kind !== 'cactus';
-      if ((!flying || next.fly === 0) && eta < 0.4 && eta > -0.02) game.input('jump');
-      else if (flying && next.fly === 2 && eta < 0.28) game.input('duck');
-    }
-    if (game.mode === 'dead' && game.deadT > 0.6) game.input('jump');
+    // The bot decides the press; the loop just feeds it to the sim.
+    const action = botAction(game);
+    if (action) game.input(action);
     game.tick(dt);
     if (++ticks % printEvery === 0) {
       printed++;
