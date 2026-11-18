@@ -3,7 +3,7 @@
 // src/render.js turns Engine state into a frame string.
 
 import { CACTI, FLYERS, CRAB, CLAUDE } from './sprites.js';
-import { CRAB_X, NIGHT_EVERY } from './util.js';
+import { CRAB_X, NIGHT_EVERY, sanitizeHi } from './util.js';
 import { Renderer } from './render.js';
 
 const GRAVITY = 52;        // rows / s^2
@@ -38,10 +38,10 @@ function compactInPlace(arr, keep) {
 export class Engine {
   constructor({ width = 80, height = 20, seed = (Date.now() % 2 ** 31) | 0, hi = 0, skin = 'clawd' } = {}) {
     this.seed = seed;
-    // Same poisoned-value guard as loadHi() in bin/clawd.js, for direct
-    // API users: a NaN/Infinity/negative/string hi would stick in the HUD
-    // (and in saveIfBeaten's comparisons) forever.
-    this.hi = Number.isFinite(hi) ? Math.max(0, Math.floor(hi)) : 0;
+    // sanitizeHi() (src/util.js) is the shared poisoned-value guard, also
+    // used by loadHi() in bin/clawd.js: a NaN/Infinity/negative/string hi
+    // would stick in the HUD (and in saveIfBeaten's comparisons) forever.
+    this.hi = sanitizeHi(hi);
     this.skin = skin === 'claude' ? CLAUDE : CRAB; // unknown names fall back to the crab
     this.mode = 'title';
     this.t = 0;

@@ -1,6 +1,6 @@
 // Tests for the pure helpers in src/util.js. Run: npm test
 import assert from 'node:assert/strict';
-import { nearestObstacle } from '../src/util.js';
+import { nearestObstacle, sanitizeHi } from '../src/util.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -33,6 +33,17 @@ test('nearestObstacle agrees with the filter().sort() selection it replaces', ()
     const oracle = list.filter((o) => o.x + o.w > 8).sort((p, q) => p.x - q.x)[0] ?? null;
     assert.equal(nearestObstacle(list, 8), oracle);
   }
+});
+
+test('sanitizeHi floors real scores and rejects poisoned values', () => {
+  assert.equal(sanitizeHi(123), 123);
+  assert.equal(sanitizeHi(123.7), 123, 'a fractional hi floors, it is still a score');
+  assert.equal(sanitizeHi(0), 0);
+  assert.equal(sanitizeHi(-5), 0, 'a negative hi starts at 0');
+  assert.equal(sanitizeHi(Infinity), 0, '1e400 parses to Infinity and must not reach the HUD');
+  assert.equal(sanitizeHi(NaN), 0);
+  assert.equal(sanitizeHi('abc'), 0, 'a string hi must not print as HI 00abc');
+  assert.equal(sanitizeHi(undefined), 0, 'a missing hi field starts at 0');
 });
 
 console.log(`\n${passed} tests passed 🧰`);
