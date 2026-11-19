@@ -143,10 +143,29 @@ function cleanup(msg = '') {
   cleanedUp = true;
   saveIfBeaten();
   clearInterval(timer);
-  if (process.stdin.isTTY) process.stdin.setRawMode(false);
-  process.stdout.write(altScreenOff);
+  // Terminal restore must never throw: cleanup() also runs from the
+  // uncaught-exception path, and a throw there would strand the terminal
+  // in raw mode on the alt screen a second time.
+  try { if (process.stdin.isTTY) process.stdin.setRawMode(false); } catch { /* already gone */ }
+  try { process.stdout.write(altScreenOff); } catch { /* stdout already broken */ }
   if (msg) console.log(msg);
 }
+
+// Registered before raw mode / the alt screen are entered, so a throw
+// during startup still restores the terminal instead of stranding it.
+process.on('exit', () => cleanup());
+process.on('SIGINT', () => { cleanup(); process.exit(0); });
+// SIGTERM / SIGHUP / SIGQUIT bypass the normal exit path, so without these
+// the shell is left in raw mode on the alt screen. Restore the terminal
+// explicitly, same as Ctrl+C does.
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+process.on('SIGHUP', () => { cleanup(); process.exit(0); });
+// Ctrl+\ (SIGQUIT) used to kill the process by default disposition, leaving
+// the shell in raw mode on the alt screen. Restore first, like the rest.
+process.on('SIGQUIT', () => { cleanup(); process.exit(0); });
+// A throw inside the 40 fps loop (or anywhere else) used to do the same:
+// die with the terminal unusable. Restore, report the error, exit 1.
+process.on('uncaughtException', (err) => { cleanup(); console.error(err); process.exit(1); });
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
@@ -173,13 +192,6 @@ process.stdout.on('resize', () => {
   lastFrame = '';
 });
 
-process.on('exit', () => cleanup());
-process.on('SIGINT', () => { cleanup(); process.exit(0); });
-// SIGTERM / SIGHUP / a stdin error (tty going away) bypass the normal exit
-// path, so without these the shell is left in raw mode on the alt screen.
-// Restore the terminal explicitly, same as Ctrl+C does.
-process.on('SIGTERM', () => { cleanup(); process.exit(0); });
-process.on('SIGHUP', () => { cleanup(); process.exit(0); });
 process.stdin.on('error', () => { cleanup(); process.exit(0); });
 
 let last = Date.now();

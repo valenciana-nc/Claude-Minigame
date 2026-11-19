@@ -2,7 +2,7 @@
 // Snapshot mode runs without a TTY, so it can be exercised with spawnSync.
 // Run: npm test
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -197,5 +197,75 @@ test('an unknown --skin stays the crab', () => {
   assert.equal(r.status, 0);
   assert.ok(!r.stdout.includes('▟'), 'an unknown skin must fall back to the crab, not crash');
 });
+
+// --- interactive-mode tests under a real pty ---------------------------------
+// `script` (util-linux) gives the game a pty, so signals and keypresses can
+// be exercised the way a real terminal delivers them. If `script` is absent
+// (or its flags differ, e.g. BSD script), these tests skip instead of failing.
+const hasScript = (() => {
+  try {
+    return spawnSync('script', ['-qec', 'true', '/dev/null'], { encoding: 'utf8' }).status === 0;
+  } catch { return false; }
+})();
+
+async function waitFor(fn, ms = 10000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    if (fn()) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+}
+
+async function testAsync(name, fn) {
+  await fn();
+  console.log('  ok - ' + name);
+  passed++;
+}
+
+// Run the game in the foreground under `script`, with the game pid written
+// to a file: `exec` makes node take over the shell's pid, so the file holds
+// the game's pid. (A backgrounded game would lose its tty stdin — sh
+// redirects a background job's stdin from /dev/null — so no `&` + `wait`.)
+async function runPty({ setup = '', act }) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-pty-'));
+  const pidFile = path.join(dir, 'pid');
+  const child = spawn('script', ['-qec', `${setup}echo $$ > ${pidFile}; exec node ${CLI}`, '/dev/null'], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d.toString('utf8'); });
+  child.stderr.on('data', (d) => { out += d.toString('utf8'); });
+  try {
+    const started = await waitFor(() => out.includes('\x1b[?1049h') && fs.existsSync(pidFile));
+    assert.ok(started, 'the game must enter the alt screen under the pty');
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    await act(child, pid);
+    const exited = await waitFor(() => child.exitCode !== null || child.signalCode !== null, 5000);
+    assert.ok(exited, 'the game must exit after the action');
+    return { status: child.exitCode, signal: child.signalCode, out };
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+if (hasScript) {
+  await testAsync('Ctrl+\\ (SIGQUIT) restores the terminal instead of stranding it', async () => {
+    const r = await runPty({ act: async (child, pid) => { process.kill(pid, 'SIGQUIT'); } });
+    assert.equal(r.status, 0, 'SIGQUIT must exit cleanly, not 131 by default disposition');
+    assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on SIGQUIT');
+  });
+
+  await testAsync('Q quits cleanly under a pty at 100x30', async () => {
+    const r = await runPty({
+      setup: 'stty cols 100 rows 30; ',
+      act: async (child) => { child.stdin.write('q'); },
+    });
+    assert.equal(r.status, 0, 'Q must exit 0 under the pty');
+    assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
+    assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on quit');
+  });
+} else {
+  console.log('  -- pty tests skipped: `script` unavailable');
+}
 
 console.log(`\n${passed} tests passed 🖥️`);
