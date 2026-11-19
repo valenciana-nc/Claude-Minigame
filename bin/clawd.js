@@ -120,6 +120,17 @@ if (!process.stdout.isTTY || !process.stdin.isTTY) {
   console.error('clawd needs a real terminal (try running it directly, not piped).');
   process.exit(1);
 }
+// The engine clamps to a 60x15 minimum, so on a smaller terminal the
+// 60-wide frame wraps every line into unreadable garbage — unplayable,
+// and no clearer than a crash. Refuse up front with the size needed. A
+// 0x0 size (a pty that reports nothing yet, e.g. under `script`) is
+// "unknown", not small: the resize event fixes it up when the terminal
+// gets a real size, so only a real too-small size refuses.
+const cols = process.stdout.columns, rows = process.stdout.rows;
+if ((cols > 0 && cols < 61) || (rows > 0 && rows < 16)) {
+  console.error(`clawd needs a bigger terminal — at least 61x16, yours is ${cols}x${rows}.`);
+  process.exit(1);
+}
 
 const game = new Engine({
   width: process.stdout.columns - 1,

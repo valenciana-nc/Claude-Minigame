@@ -282,4 +282,19 @@ await testAsync('a snapshot piped to a closed reader exits 0 with no stack trace
   if (child.exitCode === null) child.kill('SIGKILL');
 });
 
+test('a terminal smaller than 61x16 is refused with a clear message', () => {
+  if (!hasScript) { console.log('  -- skipped: `script` unavailable'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-small-'));
+  const transcript = path.join(dir, 'typescript');
+  try {
+    const r = spawnSync('script', ['-qec', `stty cols 40 rows 10; node ${CLI}`, transcript], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'a 40x10 terminal must exit 1, not start a wrapped mess');
+    const text = fs.readFileSync(transcript, 'utf8');
+    assert.ok(text.includes('bigger terminal'), 'must explain the terminal is too small');
+    assert.ok(text.includes('40x10'), 'must report the actual size');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 console.log(`\n${passed} tests passed 🖥️`);
