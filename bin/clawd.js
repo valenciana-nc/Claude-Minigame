@@ -100,7 +100,16 @@ if (flag('--snapshot')) {
       // async drain-wait can't work here — execution would fall through
       // into interactive mode before the callback fires). writeSync
       // completes before returning, so the exit can't cut output short.
-      fs.writeSync(1, `--- frame ${ticks} score=${game.score} mode=${game.mode} y=${game.y.toFixed(1)} obstacles=${game.obstacles.length}\n${game.render({ color: !flag('--plain') })}\n`);
+      // A closed pipe (e.g. `| head`) makes writeSync throw EPIPE — Node
+      // ignores SIGPIPE, so the classic silent death never happens and the
+      // run instead dies with a stack trace. Exit quietly, like any Unix
+      // filter would; anything else still throws.
+      try {
+        fs.writeSync(1, `--- frame ${ticks} score=${game.score} mode=${game.mode} y=${game.y.toFixed(1)} obstacles=${game.obstacles.length}\n${game.render({ color: !flag('--plain') })}\n`);
+      } catch (err) {
+        if (err && err.code === 'EPIPE') process.exit(0);
+        throw err;
+      }
     }
   }
   process.exit(0);
@@ -193,6 +202,9 @@ process.stdout.on('resize', () => {
 });
 
 process.stdin.on('error', () => { cleanup(); process.exit(0); });
+// A dead stdout (terminal closed, output piped somewhere gone) must end
+// the game, not leave it drawing into the void on a broken stream.
+process.stdout.on('error', () => { cleanup(); process.exit(0); });
 
 let last = Date.now();
 timer = setInterval(() => {

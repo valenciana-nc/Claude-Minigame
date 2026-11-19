@@ -268,4 +268,18 @@ if (hasScript) {
   console.log('  -- pty tests skipped: `script` unavailable');
 }
 
+await testAsync('a snapshot piped to a closed reader exits 0 with no stack trace', async () => {
+  const child = spawn(process.execPath, [CLI, '--snapshot', '9999', '--every', '1', '--plain', '--seed', '7'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let err = '';
+  child.stderr.on('data', (d) => { err += d.toString('utf8'); });
+  // Close the read end as soon as output starts flowing: the next
+  // writeSync must hit EPIPE instead of blocking forever on a dead pipe.
+  child.stdout.once('data', () => { child.stdout.destroy(); });
+  const exited = await waitFor(() => child.exitCode !== null || child.signalCode !== null, 10000);
+  assert.ok(exited, 'the snapshot run must exit after its pipe closes');
+  assert.equal(child.exitCode, 0, 'a closed pipe must exit 0, not crash with EPIPE');
+  assert.ok(!err.includes('Error'), 'no stack trace may leak to stderr: ' + err.slice(0, 200));
+  if (child.exitCode === null) child.kill('SIGKILL');
+});
+
 console.log(`\n${passed} tests passed 🖥️`);
