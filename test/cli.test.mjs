@@ -264,6 +264,56 @@ if (hasScript) {
     assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
     assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on quit');
   });
+
+  await testAsync('SIGTERM restores the terminal instead of stranding it', async () => {
+    // SIGTERM/SIGHUP bypass the normal exit path like SIGQUIT did; only
+    // the SIGQUIT handler was pinned, so a plain `kill` could still leave
+    // the shell in raw mode on the alt screen.
+    const r = await runPty({ act: async (child, pid) => { process.kill(pid, 'SIGTERM'); } });
+    assert.equal(r.status, 0, 'SIGTERM must exit cleanly, not by default disposition');
+    assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on SIGTERM');
+  });
+
+  await testAsync('SIGHUP restores the terminal instead of stranding it', async () => {
+    const r = await runPty({ act: async (child, pid) => { process.kill(pid, 'SIGHUP'); } });
+    assert.equal(r.status, 0, 'SIGHUP must exit cleanly, not by default disposition');
+    assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on SIGHUP');
+  });
+
+  await testAsync('a real terminal resize clears and redraws instead of dying', async () => {
+    // The resize handler was entirely untested: Node only emits 'resize'
+    // when the size actually changes, so a bare SIGWINCH proves nothing —
+    // change the pty size for real via stty on the game's pty slave (found
+    // through /proc), which also delivers SIGWINCH to the game. The clear
+    // escape (\x1b[2J) appears once at startup inside altScreenOn, so a
+    // resize must bring the count to 2, and the game must keep running.
+    if (!fs.existsSync('/proc/self/fd')) { console.log('  -- skipped: no /proc to find the pty'); return; }
+    const countClear = (s) => (s.match(/\x1b\[2J/g) || []).length;
+    const r = await runPty({
+      act: async (child, pid) => {
+        const pts = fs.readlinkSync(`/proc/${pid}/fd/0`);
+        spawnSync('sh', ['-c', `stty cols 80 rows 24 < ${pts}`], { encoding: 'utf8' });
+        await new Promise((r) => setTimeout(r, 400));
+        child.stdin.write('q');
+      },
+    });
+    assert.equal(r.status, 0, 'the game must survive a resize and quit cleanly');
+    assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line after a resize');
+    assert.ok(countClear(r.out) >= 2, `a resize must emit a second clear (saw ${countClear(r.out)})`);
+  });
+
+  await testAsync('the exact 61x16 minimum starts the game', async () => {
+    // The refusal check is `< 61` / `< 16`, so 61x16 is the smallest
+    // accepted size — one column or row less must refuse (see below), and
+    // this exact size must not.
+    const r = await runPty({
+      setup: 'stty cols 61 rows 16; ',
+      act: async (child) => { child.stdin.write('q'); },
+    });
+    assert.equal(r.status, 0, '61x16 is the documented minimum and must start');
+    assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
+    assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen');
+  });
 } else {
   console.log('  -- pty tests skipped: `script` unavailable');
 }
@@ -292,6 +342,40 @@ test('a terminal smaller than 61x16 is refused with a clear message', () => {
     const text = fs.readFileSync(transcript, 'utf8');
     assert.ok(text.includes('bigger terminal'), 'must explain the terminal is too small');
     assert.ok(text.includes('40x10'), 'must report the actual size');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a 60-column terminal is refused (one below the minimum)', () => {
+  // Only the 40x10 case was pinned, so an off-by-one in the `< 61` check
+  // could let a 60-wide terminal start and wrap every frame into garbage.
+  if (!hasScript) { console.log('  -- skipped: `script` unavailable'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-small-'));
+  const transcript = path.join(dir, 'typescript');
+  try {
+    const r = spawnSync('script', ['-qec', `stty cols 60 rows 30; node ${CLI}`, transcript], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'a 60x30 terminal must exit 1');
+    const text = fs.readFileSync(transcript, 'utf8');
+    assert.ok(text.includes('bigger terminal'), 'must explain the terminal is too small');
+    assert.ok(text.includes('60x30'), 'must report the actual size');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a 15-row terminal is refused (one below the minimum)', () => {
+  // Same boundary on the other axis: plenty of columns must not save a
+  // terminal one row short of the 16-row minimum.
+  if (!hasScript) { console.log('  -- skipped: `script` unavailable'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-small-'));
+  const transcript = path.join(dir, 'typescript');
+  try {
+    const r = spawnSync('script', ['-qec', `stty cols 100 rows 15; node ${CLI}`, transcript], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'a 100x15 terminal must exit 1');
+    const text = fs.readFileSync(transcript, 'utf8');
+    assert.ok(text.includes('bigger terminal'), 'must explain the terminal is too small');
+    assert.ok(text.includes('100x15'), 'must report the actual size');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
