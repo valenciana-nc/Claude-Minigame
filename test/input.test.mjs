@@ -34,6 +34,14 @@ test('plain keys map to actions', () => {
   assert.deepEqual(t.actions, ['jump', 'jump', 'duck', 'duck', 'pause', 'restart', 'quit']);
 });
 
+test('uppercase keys map to the same actions', () => {
+  // handle() accepts W/Q/P/R, but only lowercase w/s and uppercase S
+  // were exercised — an uppercase-only player could silently lose keys.
+  const t = harness();
+  t.h.data('W'); t.h.data('Q'); t.h.data('P'); t.h.data('R');
+  assert.deepEqual(t.actions, ['jump', 'quit', 'pause', 'restart']);
+});
+
 test('ctrl+C quits', () => {
   const t = harness();
   t.h.data('\x03');
@@ -243,6 +251,30 @@ test('an SS3 arrow plus the next press in one chunk both land', () => {
   const t = harness();
   t.h.data('\x1bOA ');
   assert.deepEqual(t.actions, ['jump', 'jump'], 'SS3 ↑ + SPACE in one chunk must jump twice');
+});
+
+test('a whole parameterized CSI in one chunk is ignored, not a quit', () => {
+  // The split form was pinned, but the common case — ctrl+↑ arriving
+  // whole as '\x1b[1;5A' — takes the same path with no test on it.
+  const t = harness();
+  t.h.data('\x1b[1;5A');
+  t.h.data('\x1b[1;5B');
+  assert.deepEqual(t.actions, [], 'ctrl+arrows are not game keys');
+  t.fireTimers();
+  assert.deepEqual(t.actions, [], 'no buffered ESC may fire after a complete CSI');
+  assert.equal(t.pendingTimers(), 0);
+});
+
+test('Ctrl+C during a partial CSI still quits', () => {
+  // A control byte can't continue a CSI, so it breaks the sequence and
+  // is fed as a fresh key — the quit must land instead of being swallowed
+  // by the half-finished escape.
+  const t = harness();
+  t.h.data('\x1b[1');
+  assert.deepEqual(t.actions, [], 'the partial CSI must not act yet');
+  t.h.data('\x03');
+  assert.deepEqual(t.actions, ['quit'], 'Ctrl+C must quit even mid-sequence');
+  assert.equal(t.pendingTimers(), 0, 'no buffered ESC may fire after the quit');
 });
 
 test('unknown keys are ignored', () => {

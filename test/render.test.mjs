@@ -61,6 +61,46 @@ test('the game-over screen celebrates a new best and reports an old one', () => 
   assert.ok(!oldFrame.includes('NEW BEST!'), 'no celebration without a beaten best');
 });
 
+test('the duck pose renders a different frame than standing', () => {
+  // The duck art selection (duckA/duckB by t) was only sampled for line
+  // widths — nothing asserted duckT actually changes the sprite.
+  const standing = new Engine({ width: 78, height: 18, seed: 7 });
+  standing.input('jump');
+  standing.dist = 0; standing.t = 0;
+  const ducking = new Engine({ width: 78, height: 18, seed: 7 });
+  ducking.input('jump');
+  ducking.dist = 0; ducking.t = 0; ducking.duckT = 0.5;
+  assert.notEqual(ducking.render({ color: false }), standing.render({ color: false }),
+    'a ducking crab must render its flat pose, not the run pose');
+});
+
+test('the HUD shows the live score, not just the high score', () => {
+  // The hi side was pinned through the CLI; nothing asserted the run's
+  // own score digits ever reached a frame.
+  const g = new Engine({ width: 78, height: 18, seed: 7, hi: 42 });
+  g.input('jump');
+  g.dist = 500; // score 100
+  assert.ok(g.render({ color: false }).includes('HI 00042  00100'),
+    'the HUD must show HI 00042 and the live score 00100');
+});
+
+test('the sun shines by day and the moon by night', () => {
+  // _drawCelestial's two branches were never asserted: the sun rows are
+  // the only place ' ▄▄ ' appears, and the moon is the only '☾'.
+  const day = new Engine({ width: 78, height: 18, seed: 7 });
+  day.input('jump');
+  const dayFrame = day.render({ color: false });
+  assert.ok(dayFrame.includes(' ▄▄ '), 'day must draw the sun');
+  assert.ok(!dayFrame.includes('☾'), 'day must not draw the moon');
+  const night = new Engine({ width: 78, height: 18, seed: 7 });
+  night.input('jump');
+  night.dist = 2500; // forced night
+  night.tick(1 / 30);
+  const nightFrame = night.render({ color: false });
+  assert.ok(nightFrame.includes('☾'), 'night must draw the moon');
+  assert.ok(!nightFrame.includes(' ▄▄ '), 'night must not draw the sun');
+});
+
 test('the paused screen says PAUSED', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7 });
   g.input('jump');
