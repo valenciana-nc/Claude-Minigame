@@ -360,6 +360,45 @@ test('an absurd dt is capped instead of wedging the sim', () => {
   assert.doesNotThrow(() => g.render({ color: false }));
 });
 
+test('ducking expires after half a second — one press does not last the whole approach', () => {
+  // DUCK_TIME is 0.5 s, but the duck test only ever held the key down, so
+  // a duck that never expired would pass it. One press against a far
+  // mid flyer must lapse before the flyer arrives and kill the crab.
+  const once = new Engine({ width: 78, height: 18, seed: 5 });
+  once.input('jump');
+  once.spawnIn = 1e9;
+  once.obstacles.push({ kind: 'flyer', x: 40, fly: 2, w: 3, h: 1 });
+  once.input('duck'); // single press, never repeated
+  for (let i = 0; i < 200 && once.mode !== 'dead'; i++) once.tick(1 / 40);
+  assert.equal(once.mode, 'dead', 'a lapsed duck must not save the crab');
+  assert.ok(once.duckT <= 0, 'duckT must have run out');
+});
+
+test('jump buffer expires when pressed too early — no re-jump on landing', () => {
+  // The mirror of the buffered-hop test: a jump pressed at the apex (a
+  // ~0.8 s arc) must lapse its 0.12 s buffer long before touchdown, so
+  // the crab lands and stays down instead of hopping again.
+  const g = new Engine({ width: 78, height: 18, seed: 8 });
+  g.input('jump'); g.input('jump');
+  while (g.vy > 0) g.tick(1 / 60); // rise to the apex
+  assert.ok(g.y > 3, 'must be near the apex when the early press lands');
+  g.input('jump'); // buffered too early
+  for (let i = 0; i < 120 && g.y !== 0; i++) g.tick(1 / 60);
+  assert.equal(g.y, 0, 'the crab must land');
+  for (let i = 0; i < 10; i++) g.tick(1 / 60);
+  assert.equal(g.y, 0, 'an expired buffer must not re-launch on landing');
+});
+
+test('a fresh Engine uses the default 80x20 grid', () => {
+  // Every test passed explicit dimensions, so the constructor defaults
+  // (the size a direct API user gets) were never pinned.
+  const g = new Engine({ seed: 1 });
+  assert.equal(g.W, 80);
+  assert.equal(g.H, 20);
+  assert.equal(g.groundRow, 18);
+  assert.equal(g.mode, 'title');
+});
+
 test('duck and pause are no-ops on the title screen', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7 });
   assert.equal(g.mode, 'title');
