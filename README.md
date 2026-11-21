@@ -92,7 +92,7 @@ npm run snapshot         # render bot-played frames as text (debugging/CI)
 
 The game logic (`src/engine.js`) has no terminal code in it — it's pure simulation, so it's easy to test. `bin/clawd.js` handles the screen and keyboard.
 
-Rendering: identical frames are skipped (`dedupeFrame` in `src/ansi.js`), and each emitted frame is wrapped in DEC 2026 synchronized-output markers so a supporting terminal (iTerm2, Kitty, WezTerm, Ghostty, Alacritty ≥ 0.13, modern xterm, Windows Terminal) paints it atomically instead of tearing mid-write at 40 fps. Terminals that don't support the mode ignore the markers.
+Rendering: only the rows that changed since the last frame are emitted, each cursor-positioned (`diffFrame` in `src/ansi.js` — ~2 of 18 rows change per frame while playing, so ~78% fewer bytes than a full redraw), and each emitted frame is wrapped in DEC 2026 synchronized-output markers so a supporting terminal (iTerm2, Kitty, WezTerm, Ghostty, Alacritty ≥ 0.13, modern xterm, Windows Terminal) paints it atomically instead of tearing mid-write at 40 fps. Terminals that don't support the mode ignore the markers.
 
 ## Credits
 

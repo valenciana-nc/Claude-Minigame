@@ -28,20 +28,31 @@ export const COLORS = {
 
 export const altScreenOn = `${ESC}[?1049h${ESC}[?25l${ESC}[2J${ESC}[H`;
 export const altScreenOff = `${ESC}[?1049l${ESC}[?25h`;
-// Internal only: the only consumer is dedupeFrame() below — no importer
-// (bin imports the built sequences) uses it directly, so it is not exported.
-const home = `${ESC}[H`;
 export const clear = `${ESC}[2J`;
 
-// Frame dedup — the cheap half of the buffer-diffing terminal UIs (blessed,
-// Ink) use: they only emit what changed since the last frame. Full per-cell
-// diffing is overkill here (the scene scrolls, so most lines change every
-// tick while playing), but the whole-frame case is real: the title screen
-// and a paused game render the same string 40x/s. Returns '' when the frame
-// is unchanged, so the caller can skip the write entirely; otherwise the
-// frame prefixed with `home`, exactly what the loop used to write.
-export function dedupeFrame(prev, frame) {
-  return prev === frame ? '' : home + frame;
+// Row-level frame diff — the cheap half of the buffer-diffing terminal UIs
+// (blessed, Ink) use: they only emit what changed since the last frame.
+// Full per-cell diffing is overkill here, but whole-frame dedup left ~78%
+// of the bytes on the table: measured on a 120-tick bot run, only ~2 of 18
+// rows change per frame on average (max 5) — the ground scrolls one row at
+// a time and the crab animates every other tick, while the sky, HUD and
+// help line sit still for frames at a time. So emit only the changed rows,
+// each positioned with an absolute cursor move; unchanged rows are never
+// re-emitted. Returns '' when the frame is unchanged, so the caller can
+// skip the write entirely. Every row is exactly W cells wide (render()
+// paints every cell), so overwriting a row can never leave stale trailing
+// characters from the previous frame. A first frame (prev '') emits every
+// row. Row count only changes on resize, and the resize handler resets the
+// caller's prev to '', so a shorter frame can never leave stale rows.
+export function diffFrame(prev, frame) {
+  if (prev === frame) return '';
+  const prevRows = prev ? prev.split('\n') : [];
+  const rows = frame.split('\n');
+  let out = '';
+  for (let r = 0; r < rows.length; r++) {
+    if (prevRows[r] !== rows[r]) out += `${ESC}[${r + 1};1H${rows[r]}`;
+  }
+  return out;
 }
 
 // Synchronized output (DEC 2026): `ESC[?2026h` asks a supporting terminal

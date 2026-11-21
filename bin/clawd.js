@@ -9,7 +9,7 @@ import { Engine } from '../src/engine.js';
 import { sanitizeHi } from '../src/util.js';
 import { botAction } from '../src/bot.js';
 import { createKeyHandler } from '../src/input.js';
-import { altScreenOn, altScreenOff, clear, setTitle, dedupeFrame, syncFrame } from '../src/ansi.js';
+import { altScreenOn, altScreenOff, clear, setTitle, diffFrame, syncFrame } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
 
@@ -148,10 +148,11 @@ let savedHi = game.hi;
 // exists — the exit handler still has to restore the terminal then.
 let timer = null;
 let cleanedUp = false;
-// Last frame actually written: dedupeFrame() skips the write when the new
+// Last frame actually written: diffFrame() skips the write when the new
 // frame is byte-identical, so the title screen and a paused game stop
-// re-emitting the same string 40x/s. Reset on resize — the clear below wipes
-// the screen, so the next frame must be re-emitted even if identical.
+// re-emitting the same string 40x/s, and emits only the changed rows
+// otherwise. Reset on resize — the clear below wipes the screen, so the
+// next frame must be re-emitted even if identical.
 let lastFrame = '';
 // One place for the persistence rule, used both by the interval (death saves
 // a beaten best promptly) and by cleanup (quit mid-run must not lose one).
@@ -229,7 +230,7 @@ timer = setInterval(() => {
   const frame = game.render();
   // Synchronized output (DEC 2026, src/ansi.js): a supporting terminal
   // paints the whole frame atomically instead of mid-write, so the 40 fps
-  // redraw can't tear. Deduped frames emit nothing, markers included.
-  process.stdout.write(syncFrame(dedupeFrame(lastFrame, frame)));
+  // redraw can't tear. Diffed-out frames emit nothing, markers included.
+  process.stdout.write(syncFrame(diffFrame(lastFrame, frame)));
   lastFrame = frame;
 }, 25); // ~40 fps for smoother scrolling

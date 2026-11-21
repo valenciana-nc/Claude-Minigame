@@ -1,6 +1,6 @@
 // Headless ANSI toolkit tests. Run: npm test
 import assert from 'node:assert/strict';
-import { dedupeFrame, setTitle, syncFrame } from '../src/ansi.js';
+import { diffFrame, setTitle, syncFrame } from '../src/ansi.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -9,37 +9,71 @@ function test(name, fn) {
   passed++;
 }
 
-test('dedupeFrame returns an empty string for an unchanged frame', () => {
+test('diffFrame returns an empty string for an unchanged frame', () => {
   const frame = 'line one\nline two';
-  assert.equal(dedupeFrame(frame, frame), '');
-  assert.equal(dedupeFrame('', ''), '');
+  assert.equal(diffFrame(frame, frame), '');
+  assert.equal(diffFrame('', ''), '');
 });
 
-test('dedupeFrame returns home + frame when the frame changed', () => {
-  // The expected value is the literal home sequence now, not the module's
-  // own constant — comparing dedupeFrame() against its own export would
-  // pass even if the sequence were wrong.
-  const home = '\x1b[H';
-  assert.equal(dedupeFrame('old', 'new'), home + 'new');
-  assert.equal(dedupeFrame('', 'first'), home + 'first', 'the first frame must always be emitted');
+test('diffFrame emits only the changed rows, each cursor-positioned', () => {
+  // The expected values are literal cursor-move sequences now, not the
+  // module's own constants — comparing diffFrame() against its own export
+  // would pass even if the sequence were wrong.
+  assert.equal(diffFrame('a\nb\nc', 'a\nB\nc'), '\x1b[2;1HB');
+  assert.equal(
+    diffFrame('a\nb\nc', 'A\nb\nC'),
+    '\x1b[1;1HA\x1b[3;1HC',
+    'unchanged middle row is skipped, order is top to bottom',
+  );
+});
+
+test('diffFrame emits every row for the first frame', () => {
+  assert.equal(diffFrame('', 'one\ntwo'), '\x1b[1;1Hone\x1b[2;1Htwo', 'the first frame must always be emitted');
+});
+
+test('diffFrame outputs reconstruct the frame when replayed onto a screen', () => {
+  // The point of the diff is fewer bytes for the same visible screen:
+  // replay each diff onto a mock screen and check it matches the frame
+  // after every step, including a colored row and an identical frame.
+  const frames = [
+    'aaa\nbbb\nccc',
+    'aaa\nbXb\nccc',
+    'a\x1b[31mY\x1b[0ma\nbXb\nccc',
+    'a\x1b[31mY\x1b[0ma\nbXb\nccc', // identical: emits nothing
+    'zzz\nyyy\nxxx',
+  ];
+  const screen = ['', '', ''];
+  let prev = '';
+  for (const frame of frames) {
+    const out = diffFrame(prev, frame);
+    // Split on each cursor move; the rest of a chunk is the row text,
+    // color escapes included, exactly as the terminal would print it.
+    for (const chunk of out.split(/(?=\x1b\[\d+;1H)/).filter(Boolean)) {
+      const m = chunk.match(/^\x1b\[(\d+);1H([\s\S]*)$/);
+      assert.ok(m, 'every diff chunk starts with a cursor move: ' + JSON.stringify(chunk));
+      screen[Number(m[1]) - 1] = m[2];
+    }
+    assert.equal(screen.join('\n'), frame);
+    prev = frame;
+  }
 });
 
 test('syncFrame wraps a frame in DEC 2026 markers; empty stays empty', () => {
   // Expected values are literal, not built from the module's own constants
-  // — same rule as the dedupeFrame test above.
+  // — same rule as the diffFrame test above.
   assert.equal(syncFrame('abc'), '\x1b[?2026habc\x1b[?2026l');
-  assert.equal(syncFrame(''), '', 'a deduped frame must emit no bare markers');
+  assert.equal(syncFrame(''), '', 'a diffed-out frame must emit no bare markers');
 });
 
-test('syncFrame pairs with dedupeFrame: unchanged frames emit nothing', () => {
-  assert.equal(syncFrame(dedupeFrame('same', 'same')), '');
-  assert.equal(syncFrame(dedupeFrame('old', 'new')), '\x1b[?2026h\x1b[Hnew\x1b[?2026l');
+test('syncFrame pairs with diffFrame: unchanged frames emit nothing', () => {
+  assert.equal(syncFrame(diffFrame('same', 'same')), '');
+  assert.equal(syncFrame(diffFrame('old', 'new')), '\x1b[?2026h\x1b[1;1Hnew\x1b[?2026l');
 });
 
 test('setTitle wraps the title and strips control characters', () => {
-  // A control character in the title could inject terminal sequences;
+  // a control character in the title could inject terminal sequences;
   // setTitle strips them. The expected value is literal, not built from
-  // the module's own constants — same rule as the dedupeFrame test.
+  // the module's own constants — same rule as the diffFrame test.
   assert.equal(setTitle('Claude Runner'), '\x1b]0;Claude Runner\x07');
   assert.equal(setTitle('a\x1bb\x7fc'), '\x1b]0;abc\x07', 'ESC and DEL must be stripped');
   assert.equal(setTitle('a\nb'), '\x1b]0;ab\x07', 'newlines must be stripped');
