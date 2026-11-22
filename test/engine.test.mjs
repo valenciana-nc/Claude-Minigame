@@ -24,6 +24,25 @@ test('non-finite dimensions fall back to defaults instead of crashing render', (
   assert.equal(g.H, 20);
 });
 
+test('fractional dimensions are floored instead of crashing render', () => {
+  // resize() guarded non-finite sizes but not fractional ones: W=80.7
+  // made `new Array(80.7)` throw RangeError in the renderer's buffers,
+  // so a broken terminal size query crashed the game on its first frame.
+  const g = new Engine({ width: 80.7, height: 20.9, seed: 1 });
+  assert.equal(g.W, 80, 'fractional width must floor to an integer grid');
+  assert.equal(g.H, 20, 'fractional height must floor to an integer grid');
+  assert.equal(g.groundRow, 18);
+  g.input('jump');
+  for (let i = 0; i < 10; i++) g.tick(1 / 30);
+  const frame = g.render({ color: false }).split('\n');
+  assert.equal(frame.length, 20);
+  for (const line of frame) assert.equal(line.length, 80);
+  g.resize(100.5, 25.5);
+  assert.equal(g.W, 100);
+  assert.equal(g.H, 25);
+  assert.doesNotThrow(() => g.render({ color: false }), 'a fractional resize must render cleanly');
+});
+
 test('a non-finite, negative, or non-numeric hi starts at 0 instead of poisoning the HUD', () => {
   for (const bad of [NaN, Infinity, -Infinity, -5, 'abc', undefined]) {
     assert.equal(new Engine({ seed: 1, hi: bad }).hi, 0, `hi=${bad} must start at 0`);

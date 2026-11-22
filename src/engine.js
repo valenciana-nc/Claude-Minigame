@@ -54,9 +54,11 @@ export class Engine {
   resize(width, height) {
     // Non-finite dimensions (NaN/Infinity from a broken terminal size query)
     // used to poison W/H and crash render in _put (grid[NaN] is undefined).
-    // Fall back to the defaults instead of trusting the caller.
-    const w = Number.isFinite(width) ? width : 80;
-    const h = Number.isFinite(height) ? height : 20;
+    // Fall back to the defaults instead of trusting the caller. Fractional
+    // dimensions are floored first: a W of 80.7 made `new Array(80.7)`
+    // throw RangeError in the renderer's buffers, crashing the first frame.
+    const w = Number.isFinite(width) ? Math.floor(width) : 80;
+    const h = Number.isFinite(height) ? Math.floor(height) : 20;
     this.W = Math.max(60, Math.min(120, w));
     this.H = Math.max(15, Math.min(30, h));
     this.groundRow = this.H - 2;
