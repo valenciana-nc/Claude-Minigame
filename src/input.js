@@ -14,7 +14,7 @@
 // an arrow key plus the next press, a trailing ESC), and the old code handled
 // the whole chunk as one key, so every press in it was silently dropped.
 
-export function createKeyHandler({ onAction, windowMs = 50, setTimeoutFn = setTimeout, clearTimeoutFn = clearTimeout } = {}) {
+export function createKeyHandler({ onAction = () => {}, windowMs = 50, setTimeoutFn = setTimeout, clearTimeoutFn = clearTimeout } = {}) {
   let pending = null; // timeout id while a lone ESC / partial sequence is buffered
   let buf = '';       // buffered ESC or partial sequence (e.g. '\x1b[')
   // Byte classes of a CSI / SS3 sequence (ECMA-48): parameter bytes 0x30–0x3f

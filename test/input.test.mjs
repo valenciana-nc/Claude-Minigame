@@ -27,6 +27,26 @@ function harness() {
   };
 }
 
+test('a handler with no onAction never crashes', () => {
+  // Every other option had a default, but onAction did not: a bare
+  // createKeyHandler() threw TypeError on the first mapped key — even
+  // asynchronously, when a buffered ESC's timer fired.
+  const timers = new Map();
+  let nextId = 1;
+  const h = createKeyHandler({
+    setTimeoutFn: (fn) => { const id = nextId++; timers.set(id, fn); return id; },
+    clearTimeoutFn: (id) => { timers.delete(id); },
+  });
+  assert.doesNotThrow(() => {
+    h.data(' ');
+    h.data('\x1b[A');
+    h.data('\x1b');
+    for (const fn of [...timers.values()]) fn();
+    timers.clear();
+    h.data('q');
+  }, 'keys without a listener must be dropped silently, not throw');
+});
+
 test('plain keys map to actions', () => {
   const t = harness();
   t.h.data(' '); t.h.data('w'); t.h.data('s'); t.h.data('S');
