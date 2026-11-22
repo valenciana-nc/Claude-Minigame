@@ -40,7 +40,7 @@ if (flag('--help') || flag('-h')) {
 
   legacy: clawd run also works
 
-  keys: SPACE/↑ jump · ↓/S duck (dive in mid-air) · P pause · R restart · Q quit`);
+  keys: SPACE/↑ jump · ↓/S duck (dive in mid-air) · P pause · R restart · Q quit · ^Z suspend`);
   process.exit(0);
 }
 
@@ -202,6 +202,18 @@ const keys = createKeyHandler({
       cleanup(`thanks for playing! best: ${game.hi} — run \`claude-run\` anytime 🦀`);
       process.exit(0);
     }
+    if (action === 'suspend') {
+      // Ctrl+Z in raw mode arrives as a byte (ISIG is off, so the driver
+      // never sends SIGTSTP itself): stop ourselves so the shell can take
+      // the terminal back, and let SIGCONT bring the game back. Drop any
+      // half-typed escape sequence first, or its timer would fire the
+      // moment we resume and quit the game out from under the player.
+      keys.cancel();
+      try { process.stdin.setRawMode(false); } catch { /* already gone */ }
+      process.stdout.write(altScreenOff);
+      process.kill(process.pid, 'SIGTSTP');
+      return;
+    }
     game.input(action);
   },
 });
@@ -219,6 +231,19 @@ process.stdin.on('error', () => { cleanup(); process.exit(0); });
 process.stdout.on('error', () => { cleanup(); process.exit(0); });
 
 let last = Date.now();
+// Resuming from Ctrl+Z: the shell sends SIGCONT on `fg`. Re-enter raw
+// mode and the alt screen from scratch — the shell may have printed
+// job-control noise on the main screen while we were stopped — and reset
+// the clock so the first tick after resume is not a huge clamped step.
+// Registered here, after `last` exists, rather than with the other
+// signal handlers above: a SIGCONT can only arrive once the event loop
+// is running, but there is no reason to lean on that.
+process.on('SIGCONT', () => {
+  try { process.stdin.setRawMode(true); } catch { /* stdin gone — the error handler exits */ }
+  process.stdout.write(setTitle(APP_TITLE) + altScreenOn);
+  lastFrame = '';
+  last = Date.now();
+});
 timer = setInterval(() => {
   const now = Date.now();
   // Clamp both ways: a backwards clock must not feed a negative step into

@@ -255,6 +255,46 @@ if (hasScript) {
     assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen on SIGQUIT');
   });
 
+  await testAsync('Ctrl+Z suspends the game and SIGCONT resumes it', async () => {
+    // Raw mode swallows the Ctrl+Z byte (no SIGTSTP from the driver), so
+    // the game must stop itself — and `fg` must bring it back on the alt
+    // screen instead of leaving the shell staring at a dead game. The
+    // stopped state itself (T in /proc) cannot be asserted here: under
+    // `script` in this environment even `sleep` never stops on SIGTSTP,
+    // so the stop is not observable — what is observable, and pinned,
+    // is the game's side of the contract: Ctrl+Z restores the terminal
+    // (alt screen off) and SIGCONT re-enters it (alt screen on again),
+    // and the game still quits cleanly afterwards. The kernel side is
+    // plain job control: a backgrounded node stops on self-SIGTSTP.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-pty-'));
+    const pidFile = path.join(dir, 'pid');
+    const child = spawn('script', ['-qec', `echo $$ > ${pidFile}; exec node ${CLI}`, '/dev/null'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d.toString('utf8'); });
+    child.stderr.on('data', (d) => { out += d.toString('utf8'); });
+    try {
+      const started = await waitFor(() => out.includes('\x1b[?1049h') && fs.existsSync(pidFile));
+      assert.ok(started, 'the game must enter the alt screen under the pty');
+      const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+      const altOnCount = () => (out.match(/\x1b\[\?1049h/g) || []).length;
+      child.stdin.write('\x1a'); // Ctrl+Z
+      const suspended = await waitFor(() => out.includes('\x1b[?1049l'), 5000);
+      assert.ok(suspended, 'Ctrl+Z must restore the terminal (leave the alt screen)');
+      process.kill(pid, 'SIGCONT');
+      const resumed = await waitFor(() => altOnCount() >= 2, 5000);
+      assert.ok(resumed, 'SIGCONT must re-enter the alt screen');
+      child.stdin.write('q');
+      const exited = await waitFor(() => child.exitCode !== null, 5000);
+      assert.ok(exited, 'the game must still quit cleanly after a suspend/resume cycle');
+      assert.equal(child.exitCode, 0);
+      assert.ok(out.includes('thanks for playing'), 'quit must print the goodbye line');
+      assert.ok(out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen');
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   await testAsync('Q quits cleanly under a pty at 100x30', async () => {
     const r = await runPty({
       setup: 'stty cols 100 rows 30; ',

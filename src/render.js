@@ -252,7 +252,7 @@ export class Renderer {
     if (g.mode === 'title') {
       this._center(Math.floor(g.H / 2) - 3, TITLE, 'B');
       this._center(Math.floor(g.H / 2) - 1, SUBTITLE, 'D');
-      this._center(Math.floor(g.H / 2) + 1, 'SPACE jump · ↓ duck/dive · P pause · Q quit', 'W');
+      this._center(Math.floor(g.H / 2) + 1, 'SPACE jump · ↓ duck/dive · P pause · Q quit · ^Z suspend', 'W');
       this._center(Math.floor(g.H / 2) + 3, 'press SPACE to scuttle', 'o');
     } else if (g.mode === 'dead') {
       this._center(Math.floor(g.H / 2) - 3, 'G A M E   O V E R', 'R');

@@ -62,6 +62,15 @@ test('uppercase keys map to the same actions', () => {
   assert.deepEqual(t.actions, ['jump', 'quit', 'pause', 'restart']);
 });
 
+test('Ctrl+Z suspends instead of being swallowed', () => {
+  // Raw mode turns off ISIG, so the terminal driver never sends SIGTSTP
+  // for Ctrl+Z — the byte just arrives, and the old code ignored it, so
+  // the game could not be suspended at all.
+  const t = harness();
+  t.h.data('\x1a');
+  assert.deepEqual(t.actions, ['suspend']);
+});
+
 test('ctrl+C quits', () => {
   const t = harness();
   t.h.data('\x03');

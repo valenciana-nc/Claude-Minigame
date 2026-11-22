@@ -36,6 +36,10 @@ export function createKeyHandler({ onAction = () => {}, windowMs = 50, setTimeou
 
   function handle(key) {
     if (key === 'q' || key === 'Q' || key === '\x03' || key === '\x1b') return void onAction('quit');
+    // Ctrl+Z: raw mode turns ISIG off, so the driver never sends SIGTSTP
+    // for it — the byte just arrives. Report it and let the CLI stop and
+    // resume the game itself, or the game could never be suspended at all.
+    if (key === '\x1a') return void onAction('suspend');
     if (key === ' ' || key === '\x1b[A' || key === '\x1bOA' || key === 'w' || key === 'W') return void onAction('jump');
     if (key === '\x1b[B' || key === '\x1bOB' || key === 's' || key === 'S') return void onAction('duck');
     if (key === 'p' || key === 'P') return void onAction('pause');
