@@ -33,6 +33,18 @@ test('render never mutates the engine it reads', () => {
   assert.equal(snap(g), before, 'rendering must leave every engine field untouched');
 });
 
+test('renderRows matches render() split into rows, including the shake path', () => {
+  // The CLI diffs rows directly; if renderRows ever drifted from render()
+  // the live screen and the snapshot output would disagree.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  for (let i = 0; i < 60; i++) g.tick(1 / 30); // mid-run scene
+  assert.deepEqual(g.renderRows({ color: false }), g.render({ color: false }).split('\n'));
+  assert.deepEqual(g.renderRows(), g.render().split('\n'), 'colored rows must match too');
+  g.shakeT = 0.4; // shake path builds its rows differently
+  assert.deepEqual(g.renderRows({ color: false }), g.render({ color: false }).split('\n'));
+});
+
 test('the title screen shows the controls and the start prompt', () => {
   const g = new Engine({ width: 78, height: 18, seed: 7 });
   assert.equal(g.mode, 'title');

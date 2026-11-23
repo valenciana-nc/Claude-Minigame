@@ -181,7 +181,11 @@ export class Renderer {
     }
   }
 
-  render(engine, { color = true } = {}) {
+  // The frame as an array of row strings — the form the CLI diffs. render()
+  // joins them for callers that want one string (snapshot mode, tests);
+  // diffing the rows directly avoids joining the frame into one string
+  // just for diffFrame() to split it apart again every tick.
+  renderRows(engine, { color = true } = {}) {
     this.g = engine;
     this._ensureBuffers();
     const g = engine;
@@ -274,7 +278,7 @@ export class Renderer {
       oy = Math.round(Math.cos(g.t * 47) * mag * 0.5);
     }
 
-    // flush grid -> string. Screen shake is rare (only while shakeT > 0
+    // flush grid -> rows. Screen shake is rare (only while shakeT > 0
     // right after a death), so the common no-shake frame takes a fast path
     // that skips the per-cell bounds math: with ox = oy = 0 every source
     // cell is in bounds by construction, and the general loop below is
@@ -282,7 +286,7 @@ export class Renderer {
     const out = [];
     if (ox === 0 && oy === 0) {
       for (let r = 0; r < g.H; r++) out.push(flushRow(this.grid[r], this.col[r], color));
-      return out.join('\n');
+      return out;
     }
     for (let r = 0; r < g.H; r++) {
       const sr = r - oy;
@@ -295,6 +299,10 @@ export class Renderer {
       }
       out.push(flushRow(chars, keys, color));
     }
-    return out.join('\n');
+    return out;
+  }
+
+  render(engine, { color = true } = {}) {
+    return this.renderRows(engine, { color }).join('\n');
   }
 }

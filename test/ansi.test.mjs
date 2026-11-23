@@ -1,6 +1,6 @@
 // Headless ANSI toolkit tests. Run: npm test
 import assert from 'node:assert/strict';
-import { diffFrame, setTitle, syncFrame } from '../src/ansi.js';
+import { diffFrame, diffRows, setTitle, syncFrame } from '../src/ansi.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -54,6 +54,48 @@ test('diffFrame outputs reconstruct the frame when replayed onto a screen', () =
       screen[Number(m[1]) - 1] = m[2];
     }
     assert.equal(screen.join('\n'), frame);
+    prev = frame;
+  }
+});
+
+test('diffRows matches diffFrame on the same frames, without the join/split round-trip', () => {
+  // The CLI renders rows and diffs them directly; diffFrame is the
+  // join-then-split form and must agree with it row for row, or the two
+  // paths would paint different screens.
+  const pairs = [
+    [['a', 'b', 'c'], ['a', 'B', 'c']],
+    [['a', 'b', 'c'], ['A', 'b', 'C']],
+    [[], ['one', 'two']],
+    [['same'], ['same']],
+    [['aaa', 'bbb', 'ccc'], ['zzz', 'yyy', 'xxx']],
+  ];
+  for (const [prev, next] of pairs) {
+    assert.equal(diffRows(prev, next), diffFrame(prev.join('\n'), next.join('\n')),
+      `diffRows must match diffFrame for ${JSON.stringify(prev)} -> ${JSON.stringify(next)}`);
+  }
+  assert.equal(diffRows(null, ['one', 'two']), '\x1b[1;1Hone\x1b[2;1Htwo',
+    'a null previous frame must emit every row');
+  assert.equal(diffRows([], []), '', 'two empty frames emit nothing');
+});
+
+test('diffRows outputs reconstruct the frame when replayed onto a screen', () => {
+  const frames = [
+    ['aaa', 'bbb', 'ccc'],
+    ['aaa', 'bXb', 'ccc'],
+    ['a\x1b[31mY\x1b[0ma', 'bXb', 'ccc'],
+    ['a\x1b[31mY\x1b[0ma', 'bXb', 'ccc'], // identical: emits nothing
+    ['zzz', 'yyy', 'xxx'],
+  ];
+  const screen = ['', '', ''];
+  let prev = null;
+  for (const frame of frames) {
+    const out = diffRows(prev, frame);
+    for (const chunk of out.split(/(?=\x1b\[\d+;1H)/).filter(Boolean)) {
+      const m = chunk.match(/^\x1b\[(\d+);1H([\s\S]*)$/);
+      assert.ok(m, 'every diff chunk starts with a cursor move: ' + JSON.stringify(chunk));
+      screen[Number(m[1]) - 1] = m[2];
+    }
+    assert.deepEqual(screen, frame);
     prev = frame;
   }
 });

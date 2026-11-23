@@ -9,7 +9,7 @@ import { Engine } from '../src/engine.js';
 import { sanitizeHi } from '../src/util.js';
 import { botAction } from '../src/bot.js';
 import { createKeyHandler } from '../src/input.js';
-import { altScreenOn, altScreenOff, clear, setTitle, diffFrame, syncFrame } from '../src/ansi.js';
+import { altScreenOn, altScreenOff, clear, setTitle, diffRows, syncFrame } from '../src/ansi.js';
 
 const APP_TITLE = 'Claude Runner';
 
@@ -148,12 +148,12 @@ let savedHi = game.hi;
 // exists — the exit handler still has to restore the terminal then.
 let timer = null;
 let cleanedUp = false;
-// Last frame actually written: diffFrame() skips the write when the new
-// frame is byte-identical, so the title screen and a paused game stop
-// re-emitting the same string 40x/s, and emits only the changed rows
-// otherwise. Reset on resize — the clear below wipes the screen, so the
-// next frame must be re-emitted even if identical.
-let lastFrame = '';
+// Last frame actually written, as row strings: diffRows() skips the write
+// when the new frame is identical, so the title screen and a paused game
+// stop re-emitting the same rows 40x/s, and emit only the changed rows
+// otherwise. Reset to null on resize — the clear below wipes the screen,
+// so the next frame must be re-emitted even if identical.
+let lastRows = null;
 // Whether the frame on screen was rendered while the game was static
 // (title/paused): the static skip below must not eat the first frame of
 // a newly static state — pausing mid-run changes the screen to PAUSED,
@@ -227,7 +227,7 @@ process.stdin.on('data', (key) => keys.data(key));
 process.stdout.on('resize', () => {
   game.resize(process.stdout.columns - 1, process.stdout.rows - 1);
   process.stdout.write(clear);
-  lastFrame = '';
+  lastRows = null;
 });
 
 process.stdin.on('error', () => { cleanup(); process.exit(0); });
@@ -246,7 +246,7 @@ let last = Date.now();
 process.on('SIGCONT', () => {
   try { process.stdin.setRawMode(true); } catch { /* stdin gone — the error handler exits */ }
   process.stdout.write(setTitle(APP_TITLE) + altScreenOn);
-  lastFrame = '';
+  lastRows = null;
   last = Date.now();
 });
 timer = setInterval(() => {
@@ -260,16 +260,16 @@ timer = setInterval(() => {
   // A title or paused screen never changes between ticks (the engine pins
   // that with isFrameStatic), so composing it 40x/s is pure waste — the
   // diff would drop the identical frame anyway. Skip the render once the
-  // static frame is on screen; lastFrame === '' after a resize or SIGCONT
+  // static frame is on screen; lastRows === null after a resize or SIGCONT
   // means the screen was cleared and still needs its first frame, and
   // lastWasStatic === false means the state just became static (e.g. the
   // pause key was just pressed), so the transition frame still renders.
-  if (game.isFrameStatic && lastFrame !== '' && lastWasStatic) return;
-  const frame = game.render();
+  if (game.isFrameStatic && lastRows !== null && lastWasStatic) return;
+  const rows = game.renderRows();
   // Synchronized output (DEC 2026, src/ansi.js): a supporting terminal
   // paints the whole frame atomically instead of mid-write, so the 40 fps
   // redraw can't tear. Diffed-out frames emit nothing, markers included.
-  process.stdout.write(syncFrame(diffFrame(lastFrame, frame)));
-  lastFrame = frame;
+  process.stdout.write(syncFrame(diffRows(lastRows, rows)));
+  lastRows = rows;
   lastWasStatic = game.isFrameStatic;
 }, 25); // ~40 fps for smoother scrolling

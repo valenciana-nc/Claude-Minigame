@@ -46,11 +46,20 @@ export const clear = `${ESC}[2J`;
 // caller's prev to '', so a shorter frame can never leave stale rows.
 export function diffFrame(prev, frame) {
   if (prev === frame) return '';
-  const prevRows = prev ? prev.split('\n') : [];
-  const rows = frame.split('\n');
+  return diffRows(prev ? prev.split('\n') : [], frame.split('\n'));
+}
+
+// The same row diff over row arrays: the CLI renders rows and diffs them
+// directly, so a frame is never joined into one string just to be split
+// apart again. `prevRows` may be null/[] for the first frame, which emits
+// every row; a shorter new frame never clears stale bottom rows, so the
+// caller must reset its previous rows on resize, exactly as it did with
+// the previous frame string.
+export function diffRows(prevRows, rows) {
+  const prev = prevRows || [];
   let out = '';
   for (let r = 0; r < rows.length; r++) {
-    if (prevRows[r] !== rows[r]) out += `${ESC}[${r + 1};1H${rows[r]}`;
+    if (prev[r] !== rows[r]) out += `${ESC}[${r + 1};1H${rows[r]}`;
   }
   return out;
 }

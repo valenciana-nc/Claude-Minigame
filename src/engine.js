@@ -349,4 +349,10 @@ export class Engine {
   render({ color = true } = {}) {
     return this.renderer.render(this, { color });
   }
+
+  // The frame as row strings — the form the CLI diffs (see renderRows in
+  // src/render.js); render() above is the joined-string form.
+  renderRows({ color = true } = {}) {
+    return this.renderer.renderRows(this, { color });
+  }
 }
