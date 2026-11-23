@@ -529,4 +529,27 @@ test("input('restart') from the title screen starts a run immediately", () => {
   assert.ok(g.dist > dist, 'the restarted run must advance immediately');
 });
 
+test('isFrameStatic is true only for title and paused screens', () => {
+  // The CLI skips composing static frames; a wrong true here would freeze
+  // a live screen, a wrong false just wastes a render — so pin every mode,
+  // including dead, where a flyer on screen keeps flapping on g.t.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  assert.equal(g.isFrameStatic, true, 'title screen never moves');
+  const titleFrame = g.render({ color: false });
+  for (let i = 0; i < 30; i++) g.tick(1 / 30);
+  assert.equal(g.render({ color: false }), titleFrame, 'title frame must be identical across ticks');
+  g.input('jump');
+  assert.equal(g.isFrameStatic, false, 'a running game animates');
+  g.input('pause');
+  assert.equal(g.isFrameStatic, true, 'a paused game is frozen');
+  g.input('pause');
+  assert.equal(g.isFrameStatic, false, 'unpausing animates again');
+  // Dead, with a flyer still flapping on screen.
+  g.obstacles.push({ kind: 'flyer', x: 20, fly: 0, f: FLYERS[0], w: FLYERS[0].w, h: 1, speedMul: 1 });
+  g.obstacles.push({ kind: 'cactus', x: 8, c: { w: 2, h: 2, rows: ['▟▖', '▐▌'], color: 'G' }, w: 2, h: 2 });
+  for (let i = 0; i < 60 && g.mode !== 'dead'; i++) g.tick(1 / 30);
+  assert.equal(g.mode, 'dead');
+  assert.equal(g.isFrameStatic, false, 'a dead game still animates (flapping flyers, particles, shake)');
+});
+
 console.log(`\n${passed} tests passed 🦀`);

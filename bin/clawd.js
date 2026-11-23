@@ -154,6 +154,11 @@ let cleanedUp = false;
 // otherwise. Reset on resize — the clear below wipes the screen, so the
 // next frame must be re-emitted even if identical.
 let lastFrame = '';
+// Whether the frame on screen was rendered while the game was static
+// (title/paused): the static skip below must not eat the first frame of
+// a newly static state — pausing mid-run changes the screen to PAUSED,
+// so the transition tick still renders and only later ticks skip.
+let lastWasStatic = false;
 // One place for the persistence rule, used both by the interval (death saves
 // a beaten best promptly) and by cleanup (quit mid-run must not lose one).
 function saveIfBeaten() {
@@ -252,10 +257,19 @@ timer = setInterval(() => {
   last = now;
   game.tick(dt);
   if (game.mode === 'dead') saveIfBeaten();
+  // A title or paused screen never changes between ticks (the engine pins
+  // that with isFrameStatic), so composing it 40x/s is pure waste — the
+  // diff would drop the identical frame anyway. Skip the render once the
+  // static frame is on screen; lastFrame === '' after a resize or SIGCONT
+  // means the screen was cleared and still needs its first frame, and
+  // lastWasStatic === false means the state just became static (e.g. the
+  // pause key was just pressed), so the transition frame still renders.
+  if (game.isFrameStatic && lastFrame !== '' && lastWasStatic) return;
   const frame = game.render();
   // Synchronized output (DEC 2026, src/ansi.js): a supporting terminal
   // paints the whole frame atomically instead of mid-write, so the 40 fps
   // redraw can't tear. Diffed-out frames emit nothing, markers included.
   process.stdout.write(syncFrame(diffFrame(lastFrame, frame)));
   lastFrame = frame;
+  lastWasStatic = game.isFrameStatic;
 }, 25); // ~40 fps for smoother scrolling

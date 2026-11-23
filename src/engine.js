@@ -93,6 +93,16 @@ export class Engine {
   get night() { return Math.floor(this.dist / NIGHT_EVERY) % 2 === 1; }
   get difficulty() { return Math.min(1, this.dist / 2600); } // 0 → 1 over the first ~2.6k
 
+  // True when no later tick can change the rendered frame, so the CLI can
+  // skip composing it 40x/s: on the title screen nothing moves (dist is 0,
+  // no obstacles, no particles), and a paused game is frozen solid by
+  // tick(). Deliberately NOT true for a dead game: its flyers keep
+  // flapping on g.t and its death particles and screen shake are still
+  // animating, so the frame keeps changing until they settle.
+  get isFrameStatic() {
+    return this.paused || this.mode === 'title';
+  }
+
   // --- input --------------------------------------------------------------
 
   input(action) {

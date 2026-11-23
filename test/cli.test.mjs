@@ -342,6 +342,34 @@ if (hasScript) {
     assert.ok(countClear(r.out) >= 2, `a resize must emit a second clear (saw ${countClear(r.out)})`);
   });
 
+  await testAsync('a paused game redraws after a resize instead of staying blank', async () => {
+    // The interval skips composing static (paused/title) frames once one
+    // is on screen — but a resize clears the screen and resets lastFrame,
+    // so the paused frame must be re-emitted. Counting 'P A U S E D'
+    // emissions pins that: one before the resize, one after. Without the
+    // re-render the screen would stay cleared until unpause. The text is
+    // counted on escape-stripped output: the color state machine wraps
+    // every letter in its own escape, so the literal never appears raw.
+    if (!fs.existsSync('/proc/self/fd')) { console.log('  -- skipped: no /proc to find the pty'); return; }
+    const strip = (s) => s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+    const countPaused = (s) => (strip(s).match(/P A U S E D/g) || []).length;
+    const r = await runPty({
+      act: async (child, pid) => {
+        child.stdin.write(' '); // start the run
+        await new Promise((r) => setTimeout(r, 300));
+        child.stdin.write('p'); // pause
+        await new Promise((r) => setTimeout(r, 500));
+        const pts = fs.readlinkSync(`/proc/${pid}/fd/0`);
+        spawnSync('sh', ['-c', `stty cols 80 rows 24 < ${pts}`], { encoding: 'utf8' });
+        await new Promise((r) => setTimeout(r, 500));
+        child.stdin.write('q');
+      },
+    });
+    assert.equal(r.status, 0, 'the game must survive a resize while paused and quit cleanly');
+    assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
+    assert.ok(countPaused(r.out) >= 2, `a resize while paused must re-emit the paused frame (saw ${countPaused(r.out)})`);
+  });
+
   await testAsync('the exact 61x16 minimum starts the game', async () => {
     // The refusal check is `< 61` / `< 16`, so 61x16 is the smallest
     // accepted size — one column or row less must refuse (see below), and
