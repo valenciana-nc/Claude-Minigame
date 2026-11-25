@@ -180,15 +180,17 @@ function cleanup(msg = '') {
 // Registered before raw mode / the alt screen are entered, so a throw
 // during startup still restores the terminal instead of stranding it.
 process.on('exit', () => cleanup());
-process.on('SIGINT', () => { cleanup(); process.exit(0); });
-// SIGTERM / SIGHUP / SIGQUIT bypass the normal exit path, so without these
-// the shell is left in raw mode on the alt screen. Restore the terminal
-// explicitly, same as Ctrl+C does.
-process.on('SIGTERM', () => { cleanup(); process.exit(0); });
-process.on('SIGHUP', () => { cleanup(); process.exit(0); });
-// Ctrl+\ (SIGQUIT) used to kill the process by default disposition, leaving
-// the shell in raw mode on the alt screen. Restore first, like the rest.
-process.on('SIGQUIT', () => { cleanup(); process.exit(0); });
+// Every fatal signal ends the same way — restore the terminal, then exit
+// 0 — so one shared handler covers them all: a change to the shutdown
+// path can't silently leave one signal stranding the terminal in raw mode
+// on the alt screen. SIGTERM / SIGHUP / SIGQUIT bypass the normal exit
+// path, and Ctrl+\ (SIGQUIT) used to kill the process by default
+// disposition; all four restore first, like Ctrl+C does.
+function shutdown() { cleanup(); process.exit(0); }
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+process.on('SIGHUP', shutdown);
+process.on('SIGQUIT', shutdown);
 // A throw inside the 40 fps loop (or anywhere else) used to do the same:
 // die with the terminal unusable. Restore, report the error, exit 1.
 process.on('uncaughtException', (err) => { cleanup(); console.error(err); process.exit(1); });
@@ -230,10 +232,10 @@ process.stdout.on('resize', () => {
   lastRows = null;
 });
 
-process.stdin.on('error', () => { cleanup(); process.exit(0); });
+process.stdin.on('error', shutdown);
 // A dead stdout (terminal closed, output piped somewhere gone) must end
 // the game, not leave it drawing into the void on a broken stream.
-process.stdout.on('error', () => { cleanup(); process.exit(0); });
+process.stdout.on('error', shutdown);
 
 let last = Date.now();
 // Resuming from Ctrl+Z: the shell sends SIGCONT on `fg`. Re-enter raw
