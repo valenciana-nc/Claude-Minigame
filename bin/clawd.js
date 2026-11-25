@@ -62,7 +62,10 @@ const seed = Number(opt('--seed', Date.now() % 2 ** 31));
 const skin = String(opt('--skin', 'clawd')).toLowerCase() === 'claude' ? 'claude' : 'clawd';
 
 // ---------- snapshot mode: headless bot run, prints frames ----------
-if (flag('--snapshot')) {
+// A named function, not a top-level block, so the CLI's top level reads
+// as arg parsing → mode dispatch → interactive setup. Exits the process
+// when done, so interactive mode never runs after it.
+function runSnapshot() {
   // A numeric flag with garbage/zero/negative input (--snapshot abc, --every 0)
   // used to make the print loop exit 0 having printed nothing: NaN and 0 both
   // fail the loop condition from the start. Coerce to a positive integer,
@@ -114,6 +117,8 @@ if (flag('--snapshot')) {
   }
   process.exit(0);
 }
+
+if (flag('--snapshot')) runSnapshot();
 
 // ---------- interactive mode ----------
 if (!process.stdout.isTTY || !process.stdin.isTTY) {
