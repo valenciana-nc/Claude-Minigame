@@ -164,6 +164,13 @@ let lastRows = null;
 // a newly static state — pausing mid-run changes the screen to PAUSED,
 // so the transition tick still renders and only later ticks skip.
 let lastWasStatic = false;
+// A mid-game shrink below the 61x16 minimum: the engine clamps frames to
+// 60x15, so on a smaller terminal every frame wraps into unreadable
+// garbage — and the game keeps running blind, so the crab can die while
+// the player can't see. Freeze the sim and show one short line instead
+// of frames until the terminal grows back.
+let tooSmall = false;
+let pausedByShrink = false;
 // One place for the persistence rule, used both by the interval (death saves
 // a beaten best promptly) and by cleanup (quit mid-run must not lose one).
 function saveIfBeaten() {
@@ -232,7 +239,26 @@ const keys = createKeyHandler({
 process.stdin.on('data', (key) => keys.data(key));
 
 process.stdout.on('resize', () => {
-  game.resize(process.stdout.columns - 1, process.stdout.rows - 1);
+  const cols = process.stdout.columns, rows = process.stdout.rows;
+  // Shrunk below the minimum mid-game: freeze instead of wrapping
+  // 60-wide frames into garbage. A 0x0 size is "unknown", not small —
+  // same as the startup check — so it still takes the normal path and a
+  // later resize with a real size fixes it up. The line is written once,
+  // on the transition: the interval below stays silent while tooSmall.
+  if ((cols > 0 && cols < 61) || (rows > 0 && rows < 16)) {
+    if (!tooSmall) {
+      tooSmall = true;
+      if (game.mode === 'run' && !game.paused) { game.paused = true; pausedByShrink = true; }
+      process.stdout.write(`${clear}\x1b[Htoo small — enlarge to 61x16\r\n`);
+      lastRows = null;
+    }
+    return;
+  }
+  if (tooSmall) {
+    tooSmall = false;
+    if (pausedByShrink) { game.paused = false; pausedByShrink = false; }
+  }
+  game.resize(cols - 1, rows - 1);
   process.stdout.write(clear);
   lastRows = null;
 });
@@ -264,6 +290,9 @@ timer = setInterval(() => {
   last = now;
   game.tick(dt);
   if (game.mode === 'dead') saveIfBeaten();
+  // A terminal shrunk below the minimum shows the too-small line instead
+  // of frames: a 60-wide frame would wrap into garbage on it.
+  if (tooSmall) return;
   // A title or paused screen never changes between ticks (the engine pins
   // that with isFrameStatic), so composing it 40x/s is pure waste — the
   // diff would drop the identical frame anyway. Skip the render once the

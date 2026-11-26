@@ -370,6 +370,32 @@ if (hasScript) {
     assert.ok(countPaused(r.out) >= 2, `a resize while paused must re-emit the paused frame (saw ${countPaused(r.out)})`);
   });
 
+  await testAsync('shrinking below the minimum freezes the game and warns instead of wrapping frames', async () => {
+    // Nov 19 follow-up: a mid-game shrink used to keep rendering 60-wide
+    // frames into a smaller terminal, wrapping every line into garbage
+    // while the crab kept running blind. Now the sim freezes, one short
+    // line replaces the frame, and growing back resumes the run. The line
+    // must appear exactly once — the interval stays silent while small,
+    // or it would flood the screen 40x/s.
+    if (!fs.existsSync('/proc/self/fd')) { console.log('  -- skipped: no /proc to find the pty'); return; }
+    const r = await runPty({
+      act: async (child, pid) => {
+        child.stdin.write(' '); // start the run
+        await new Promise((r) => setTimeout(r, 300));
+        const pts = fs.readlinkSync(`/proc/${pid}/fd/0`);
+        spawnSync('sh', ['-c', `stty cols 40 rows 10 < ${pts}`], { encoding: 'utf8' });
+        await new Promise((r) => setTimeout(r, 500));
+        spawnSync('sh', ['-c', `stty cols 80 rows 24 < ${pts}`], { encoding: 'utf8' });
+        await new Promise((r) => setTimeout(r, 500));
+        child.stdin.write('q');
+      },
+    });
+    assert.equal(r.status, 0, 'the game must survive a shrink and regrow and quit cleanly');
+    assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line after regrowing');
+    const warnings = (r.out.match(/too small/g) || []).length;
+    assert.equal(warnings, 1, `the too-small line must be written once on the transition (saw ${warnings})`);
+  });
+
   await testAsync('the exact 61x16 minimum starts the game', async () => {
     // The refusal check is `< 61` / `< 16`, so 61x16 is the smallest
     // accepted size — one column or row less must refuse (see below), and
