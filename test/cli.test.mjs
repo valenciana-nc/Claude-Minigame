@@ -227,10 +227,10 @@ async function testAsync(name, fn) {
 // to a file: `exec` makes node take over the shell's pid, so the file holds
 // the game's pid. (A backgrounded game would lose its tty stdin — sh
 // redirects a background job's stdin from /dev/null — so no `&` + `wait`.)
-async function runPty({ setup = '', act }) {
+async function runPty({ setup = '', env = {}, act }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-pty-'));
   const pidFile = path.join(dir, 'pid');
-  const child = spawn('script', ['-qec', `${setup}echo $$ > ${pidFile}; exec node ${CLI}`, '/dev/null'], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn('script', ['-qec', `${setup}echo $$ > ${pidFile}; exec node ${CLI}`, '/dev/null'], { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   let out = '';
   child.stdout.on('data', (d) => { out += d.toString('utf8'); });
   child.stderr.on('data', (d) => { out += d.toString('utf8'); });
@@ -407,6 +407,30 @@ if (hasScript) {
     assert.equal(r.status, 0, '61x16 is the documented minimum and must start');
     assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
     assert.ok(r.out.includes('\x1b[?1049l'), 'cleanup must leave the alt screen');
+  });
+
+  await testAsync('quitting after a run saves the beaten hi to disk', async () => {
+    // loadHi() is pinned from the read side, but the other direction —
+    // saveHi()/saveIfBeaten() writing the file on quit — had no test at
+    // all: a broken write would silently lose every best score.
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'clawd-hi-save-'));
+    try {
+      const r = await runPty({
+        setup: 'stty cols 100 rows 30; ',
+        env: { HOME: home },
+        act: async (child) => {
+          child.stdin.write(' '); // start the run
+          await new Promise((r) => setTimeout(r, 2000)); // bank a score
+          child.stdin.write('q');
+        },
+      });
+      assert.equal(r.status, 0, 'Q must exit 0');
+      assert.ok(r.out.includes('thanks for playing'), 'quit must print the goodbye line');
+      const saved = JSON.parse(fs.readFileSync(path.join(home, '.claude-minigame.json'), 'utf8'));
+      assert.ok(saved.hi > 0, `quitting must persist the beaten hi (saw ${JSON.stringify(saved)})`);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 } else {
   console.log('  -- pty tests skipped: `script` unavailable');
