@@ -294,6 +294,35 @@ test('a whole parameterized CSI in one chunk is ignored, not a quit', () => {
   assert.equal(t.pendingTimers(), 0);
 });
 
+test('a CSI with an intermediate byte is ignored, not a keypress', () => {
+  // '\x1b[1 q' (DECSCUSR cursor style) and '\x1b[?25l' (hide cursor)
+  // are real sequences a terminal can send; the space is an
+  // intermediate byte (0x20–0x2f), so the whole sequence is one unknown
+  // key — the embedded space must never fire a jump, and the ESC must
+  // never become a quit. The intermediate-byte branch of feed() was the
+  // only one with no test on it.
+  const t = harness();
+  t.h.data('\x1b[1 q');
+  t.h.data('\x1b[?25l');
+  assert.deepEqual(t.actions, [], 'CSI with intermediates must not act');
+  t.fireTimers();
+  assert.deepEqual(t.actions, [], 'no buffered ESC may fire after a complete CSI');
+  assert.equal(t.pendingTimers(), 0);
+});
+
+test('an intermediate byte split across chunks still completes the sequence', () => {
+  // The cursor-style sequence arriving as '\x1b[1 ' + 'q': the space is
+  // buffered as part of the sequence, not handled as a jump press.
+  const t = harness();
+  t.h.data('\x1b[1 ');
+  assert.deepEqual(t.actions, [], 'the buffered CSI must not act yet');
+  t.h.data('q');
+  assert.deepEqual(t.actions, [], 'split DECSCUSR must not jump on the space');
+  t.fireTimers();
+  assert.deepEqual(t.actions, [], 'no buffered ESC may fire after the completed sequence');
+  assert.equal(t.pendingTimers(), 0);
+});
+
 test('Ctrl+C during a partial CSI still quits', () => {
   // A control byte can't continue a CSI, so it breaks the sequence and
   // is fed as a fresh key — the quit must land instead of being swallowed
