@@ -231,6 +231,77 @@ test('spawn gaps stay reachable: a competent bot clears well into the hard zone'
   }
 });
 
+test('a fast flyer never overtakes the obstacle ahead of it', () => {
+  // Flyers scroll 1.3x faster than the ground, so one closing in on a
+  // cactus ahead must be held a jump-and-recover gap back — otherwise the
+  // player faces a jump and a duck at once. The bot-survival test only
+  // implies this; nothing pinned the clamp itself.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  g.spawnIn = 1e9;
+  g.obstacles.push({ kind: 'cactus', x: 50, c: { w: 3, h: 2, rows: ['███', '███'], color: 'G' }, w: 3, h: 2 });
+  g.obstacles.push({ kind: 'flyer', x: 56, fly: 0, f: FLYERS[0], w: 3, h: 1, speedMul: 1.3 });
+  const safe = g._jumpCols() + 8;
+  for (let i = 0; i < 40; i++) g.tick(1 / 30); // flyer would close ~31 cols unclamped
+  const cactus = g.obstacles.find((o) => o.kind === 'cactus');
+  const flyer = g.obstacles.find((o) => o.kind === 'flyer');
+  assert.ok(cactus && flyer, 'both obstacles must still be on screen');
+  assert.ok(flyer.x > cactus.x + cactus.w, 'the flyer must stay behind the cactus, never overtake it');
+  const gap = flyer.x - (cactus.x + cactus.w);
+  assert.ok(gap >= safe - 0.01, `the flyer must keep a jump-and-recover gap (gap ${gap.toFixed(1)} < ${safe.toFixed(1)})`);
+  assert.equal(g.mode, 'run', 'the held flyer must not have killed the crab');
+
+  // And a flyer with plenty of room is not held back: it closes at full speed.
+  const free = new Engine({ width: 78, height: 18, seed: 7 });
+  free.input('jump');
+  free.spawnIn = 1e9;
+  free.obstacles.push({ kind: 'cactus', x: 50, c: { w: 3, h: 2, rows: ['███', '███'], color: 'G' }, w: 3, h: 2 });
+  free.obstacles.push({ kind: 'flyer', x: 90, fly: 0, f: FLYERS[0], w: 3, h: 1, speedMul: 1.3 });
+  for (let i = 0; i < 10; i++) free.tick(1 / 30);
+  const freeFlyer = free.obstacles.find((o) => o.kind === 'flyer');
+  assert.ok(freeFlyer.x < 90 - 5, 'a flyer with room must still close in');
+  assert.ok(freeFlyer.x - 53 > free._jumpCols() + 8, 'a flyer beyond the bound must not be clamped');
+});
+
+test('early spawns are tier 0 only and flyers never appear before dist 550', () => {
+  // The tier unlocks and the flyer gate are the early-game fairness
+  // promise; the bot-survival test would likely still pass if a tall
+  // tier-3 cactus spawned on the first screen, so pin the gates directly.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  g.dist = 100;
+  let sawFlyer = false, maxTier = 0;
+  for (let i = 0; i < 200; i++) {
+    g.obstacles = [];
+    g._spawn();
+    for (const ob of g.obstacles) {
+      if (ob.kind === 'flyer') sawFlyer = true;
+      if (ob.kind === 'cactus') maxTier = Math.max(maxTier, ob.c.tier);
+    }
+  }
+  assert.equal(sawFlyer, false, 'no flyer may spawn before dist 550');
+  assert.equal(maxTier, 0, 'only tier-0 cacti may spawn before dist 350');
+});
+
+test('late spawns include flyers and top-tier cacti', () => {
+  // The mirror of the early-game gate: past the unlocks, the hard stuff
+  // must actually show up, or the late game would stay flat forever.
+  const g = new Engine({ width: 78, height: 18, seed: 7 });
+  g.input('jump');
+  g.dist = 2000;
+  let sawFlyer = false, sawTier3 = false;
+  for (let i = 0; i < 300; i++) {
+    g.obstacles = [];
+    g._spawn();
+    for (const ob of g.obstacles) {
+      if (ob.kind === 'flyer') sawFlyer = true;
+      if (ob.kind === 'cactus' && ob.c.tier === 3) sawTier3 = true;
+    }
+  }
+  assert.ok(sawFlyer, 'flyers must appear once dist passes 550');
+  assert.ok(sawTier3, 'tier-3 cacti must appear once dist passes 1500');
+});
+
 test('the orange Clawd runner renders at width W in every state', () => {
   const c = new Engine({ width: 78, height: 18, seed: 2 });
   c.input('jump');
